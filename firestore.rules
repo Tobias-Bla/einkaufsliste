@@ -1,0 +1,29 @@
+rules_version = '2';
+
+service cloud.firestore {
+  match /databases/{database}/documents {
+    match /households/{householdId} {
+      allow read, write: if isSignedIn() && isValidHouseholdId(householdId);
+
+      match /recipes/{recipeId} {
+        allow read, write: if isSignedIn() && isValidHouseholdId(householdId);
+      }
+
+      match /shopping_list/{itemId} {
+        allow read, write: if isSignedIn() && isValidHouseholdId(householdId);
+      }
+    }
+
+    match /{document=**} {
+      allow read, write: if false;
+    }
+  }
+
+  function isSignedIn() {
+    return request.auth != null;
+  }
+
+  function isValidHouseholdId(householdId) {
+    return householdId.matches('[A-Z0-9]{4,12}');
+  }
+}

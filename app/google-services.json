@@ -1,0 +1,29 @@
+{
+  "project_info": {
+    "project_number": "917965403167",
+    "project_id": "einkaufsliste-6dc7b",
+    "storage_bucket": "einkaufsliste-6dc7b.firebasestorage.app"
+  },
+  "client": [
+    {
+      "client_info": {
+        "mobilesdk_app_id": "1:917965403167:android:1c1dac183b0f6e8993d12a",
+        "android_client_info": {
+          "package_name": "com.example.einkaufsliste"
+        }
+      },
+      "oauth_client": [],
+      "api_key": [
+        {
+          "current_key": "AIzaSyCZ_mhHpJXev53VkojNU_Qye4umUJbPjWI"
+        }
+      ],
+      "services": {
+        "appinvite_service": {
+          "other_platform_oauth_client": []
+        }
+      }
+    }
+  ],
+  "configuration_version": "1"
+}
