@@ -41,6 +41,7 @@ class MainActivity : ComponentActivity() {
     }
 }
 
+
 @Composable
 fun MainApp() {
     val context = LocalContext.current
