@@ -9,7 +9,7 @@ import kotlin.math.roundToInt
 
 enum class RecommendationSource {
     SAVED,
-    SUGGESTED
+    AI
 }
 
 data class RecommendationIngredient(
@@ -38,7 +38,8 @@ data class RecipeRecommendation(
     val matchedIngredients: List<String>,
     val missingIngredients: List<RecommendationIngredient>,
     val offerMatches: List<OfferMatch>,
-    val rationale: String
+    val rationale: String,
+    val imageUrl: String? = null
 )
 
 class RecipeRecommendationEngine {
@@ -52,9 +53,7 @@ class RecipeRecommendationEngine {
             canonicalTagsForOffer(offer).map { canonicalTag -> canonicalTag to offer }
         }.groupBy({ it.first }, { it.second })
 
-        val knownRecipeNames = savedRecipes.map { it.name.normalizedKey() }.toSet()
-        val candidates = savedRecipes.map { it.toCandidate() } +
-            suggestionTemplates().filterNot { it.name.normalizedKey() in knownRecipeNames }
+        val candidates = savedRecipes.map { it.toCandidate() }
 
         return candidates.mapNotNull { candidate ->
             val matches = candidate.ingredients.mapNotNull { ingredient ->
@@ -106,7 +105,8 @@ class RecipeRecommendationEngine {
                 matchedIngredients = matches.map { it.ingredientName }.distinct(),
                 missingIngredients = missing,
                 offerMatches = matches,
-                rationale = buildRationale(candidate.name, matches)
+                rationale = buildRationale(candidate.name, matches),
+                imageUrl = candidate.imageUrl
             )
         }.sortedWith(
             compareByDescending<RecipeRecommendation> { it.score }
@@ -130,6 +130,7 @@ class RecipeRecommendationEngine {
             name = name,
             description = description.ifBlank { "Aus deinen gespeicherten Rezepten." },
             source = RecommendationSource.SAVED,
+            imageUrl = imageUrl,
             ingredients = ingredients.map { it.toRecommendationIngredient() }
         )
 
@@ -172,71 +173,13 @@ class RecipeRecommendationEngine {
         .replace(Regex("\\s+"), " ")
         .trim()
 
-    private fun suggestionTemplates(): List<RecommendationCandidate> = listOf(
-        RecommendationCandidate(
-            id = "suggested-lasagne",
-            recipeId = null,
-            name = "Lasagne",
-            description = "Klassiker fuer die Woche, wenn Tomaten und Hackfleisch guenstig sind.",
-            source = RecommendationSource.SUGGESTED,
-            ingredients = listOf(
-                RecommendationIngredient("Passierte Tomaten", "2", "Packungen", "Konserven"),
-                RecommendationIngredient("Rinderhackfleisch", "500", "g", "Fleisch"),
-                RecommendationIngredient("Lasagneplatten", "1", "Packung", "Vorrat"),
-                RecommendationIngredient("Kaese", "200", "g", "Milchprodukte"),
-                RecommendationIngredient("Zwiebel", "1", "Stk.", "Gemuese", isCore = false),
-                RecommendationIngredient("Basilikum", "1", "Bund", "Gewuerze", isCore = false)
-            )
-        ),
-        RecommendationCandidate(
-            id = "suggested-tomaten-hack-pasta",
-            recipeId = null,
-            name = "Tomaten-Hack-Pasta",
-            description = "Schnelles Feierabendgericht mit starkem Angebotsfit.",
-            source = RecommendationSource.SUGGESTED,
-            ingredients = listOf(
-                RecommendationIngredient("Rinderhackfleisch", "400", "g", "Fleisch"),
-                RecommendationIngredient("Passierte Tomaten", "1", "Packung", "Konserven"),
-                RecommendationIngredient("Spaghetti", "500", "g", "Vorrat"),
-                RecommendationIngredient("Kaese", "80", "g", "Milchprodukte", isCore = false),
-                RecommendationIngredient("Zwiebel", "1", "Stk.", "Gemuese", isCore = false)
-            )
-        ),
-        RecommendationCandidate(
-            id = "suggested-chili",
-            recipeId = null,
-            name = "Chili con Carne",
-            description = "Lohnt sich besonders, wenn Bohnen, Paprika und Hack im Angebot sind.",
-            source = RecommendationSource.SUGGESTED,
-            ingredients = listOf(
-                RecommendationIngredient("Rinderhackfleisch", "500", "g", "Fleisch"),
-                RecommendationIngredient("Passierte Tomaten", "1", "Packung", "Konserven"),
-                RecommendationIngredient("Kidneybohnen", "1", "Dose", "Konserven"),
-                RecommendationIngredient("Paprika", "2", "Stk.", "Gemuese"),
-                RecommendationIngredient("Zwiebel", "1", "Stk.", "Gemuese", isCore = false)
-            )
-        ),
-        RecommendationCandidate(
-            id = "suggested-zucchini-auflauf",
-            recipeId = null,
-            name = "Zucchini-Mozzarella-Auflauf",
-            description = "Gemuesefokussierter Vorschlag aus den Frischeangeboten.",
-            source = RecommendationSource.SUGGESTED,
-            ingredients = listOf(
-                RecommendationIngredient("Zucchini", "3", "Stk.", "Gemuese"),
-                RecommendationIngredient("Mozzarella", "2", "Kugeln", "Milchprodukte"),
-                RecommendationIngredient("Passierte Tomaten", "1", "Packung", "Konserven"),
-                RecommendationIngredient("Basilikum", "1", "Bund", "Gewuerze", isCore = false)
-            )
-        )
-    )
-
     private data class RecommendationCandidate(
         val id: String,
         val recipeId: String?,
         val name: String,
         val description: String,
         val source: RecommendationSource,
+        val imageUrl: String?,
         val ingredients: List<RecommendationIngredient>
     )
 

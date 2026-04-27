@@ -61,7 +61,8 @@ fun MainApp() {
                 return TodayViewModel(
                     recipeRepository = appContainer.recipeRepository,
                     discoveryRepository = appContainer.discoveryRepository,
-                    recommendationEngine = appContainer.recommendationEngine
+                    recommendationEngine = appContainer.recommendationEngine,
+                    aiRecipeSuggestionService = appContainer.aiRecipeSuggestionService
                 ) as T
             }
         }

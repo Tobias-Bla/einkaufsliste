@@ -6,6 +6,7 @@ import com.example.einkaufsliste.data.catalog.RecipeCatalogSeedDataSource
 import com.example.einkaufsliste.data.discovery.LocalDiscoveryRepository
 import com.example.einkaufsliste.data.local.AppDatabase
 import com.example.einkaufsliste.data.local.HouseholdStore
+import com.example.einkaufsliste.data.remote.AiRecipeSuggestionService
 import com.example.einkaufsliste.data.remote.AuthService
 import com.example.einkaufsliste.data.remote.FirestoreService
 import com.example.einkaufsliste.data.repository.RecipeRepository
@@ -47,6 +48,7 @@ class AppContainer(context: Context) {
     }
 
     val discoveryRepository: LocalDiscoveryRepository by lazy { LocalDiscoveryRepository() }
+    val aiRecipeSuggestionService: AiRecipeSuggestionService by lazy { AiRecipeSuggestionService() }
 
     val recommendationEngine: RecipeRecommendationEngine by lazy {
         RecipeRecommendationEngine()

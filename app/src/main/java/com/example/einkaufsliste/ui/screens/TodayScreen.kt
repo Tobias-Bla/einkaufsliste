@@ -8,6 +8,7 @@ import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
+import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.lazy.LazyColumn
@@ -33,8 +34,10 @@ import androidx.compose.runtime.Composable
 import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
+import coil.compose.AsyncImage
 import com.example.einkaufsliste.data.discovery.NearbyStore
 import com.example.einkaufsliste.domain.recommendation.RecommendationIngredient
 import com.example.einkaufsliste.domain.recommendation.RecommendationSource
@@ -100,16 +103,9 @@ fun TodayScreen(
             contentPadding = PaddingValues(16.dp)
         ) {
             item {
-                HeroCard(
-                    city = feed.profile.city,
-                    updatedAtLabel = feed.updatedAtLabel,
-                    storeCount = feed.stores.size,
-                    offerCount = feed.offers.size
-                )
-            }
-            item {
                 DailyTipCard(
                     recommendation = uiState.dailyTip,
+                    imageUrl = uiState.dailyTipImageUrl,
                     onViewRecipes = onViewRecipes,
                     onAddMissingIngredients = {
                         uiState.dailyTip?.let { tip ->
@@ -158,6 +154,7 @@ fun TodayScreen(
 @Composable
 private fun DailyTipCard(
     recommendation: RecipeRecommendation?,
+    imageUrl: String?,
     onViewRecipes: () -> Unit,
     onAddMissingIngredients: () -> Unit
 ) {
@@ -182,6 +179,16 @@ private fun DailyTipCard(
                     Text("Rezepte ansehen")
                 }
             } else {
+                imageUrl?.takeIf { it.isNotBlank() }?.let { recipeImage ->
+                    AsyncImage(
+                        model = recipeImage,
+                        contentDescription = recommendation.name,
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .height(190.dp),
+                        contentScale = ContentScale.Crop
+                    )
+                }
                 Text(
                     text = recommendation.name,
                     style = MaterialTheme.typography.headlineSmall,
@@ -208,42 +215,6 @@ private fun DailyTipCard(
                     }
                 }
             }
-        }
-    }
-}
-
-@Composable
-private fun HeroCard(
-    city: String,
-    updatedAtLabel: String,
-    storeCount: Int,
-    offerCount: Int
-) {
-    Card(
-        colors = CardDefaults.cardColors(
-            containerColor = MaterialTheme.colorScheme.primaryContainer
-        )
-    ) {
-        Column(
-            modifier = Modifier
-                .fillMaxWidth()
-                .padding(20.dp),
-            verticalArrangement = Arrangement.spacedBy(10.dp)
-        ) {
-            Text(
-                text = "Besser einkaufen in $city",
-                style = MaterialTheme.typography.headlineSmall,
-                fontWeight = FontWeight.SemiBold
-            )
-            Text(
-                text = "$storeCount Maerkte, $offerCount interessante Treffer und sofort nutzbare Rezeptideen.",
-                style = MaterialTheme.typography.bodyLarge
-            )
-            Text(
-                text = "Stand: $updatedAtLabel",
-                style = MaterialTheme.typography.bodySmall,
-                color = MaterialTheme.colorScheme.onSurfaceVariant
-            )
         }
     }
 }
@@ -354,10 +325,9 @@ private fun RecommendationCard(
                         onClick = {},
                         label = {
                             Text(
-                                if (recommendation.source == RecommendationSource.SAVED) {
-                                    "Gespeichert"
-                                } else {
-                                    "Neu"
+                                when (recommendation.source) {
+                                    RecommendationSource.SAVED -> "Gespeichert"
+                                    RecommendationSource.AI -> "KI"
                                 }
                             )
                         }
@@ -404,10 +374,9 @@ private fun RecommendationCard(
                 }
                 OutlinedButton(onClick = {}) {
                     Text(
-                        if (recommendation.source == RecommendationSource.SAVED) {
-                            "Aus deinen Rezepten"
-                        } else {
-                            "Neuer Vorschlag"
+                        when (recommendation.source) {
+                            RecommendationSource.SAVED -> "Aus deinen Rezepten"
+                            RecommendationSource.AI -> "KI-Idee"
                         }
                     )
                 }

@@ -1,6 +1,8 @@
 package com.example.einkaufsliste.ui.screens
 
+import android.content.ClipData
 import android.content.Intent
+import android.content.ClipboardManager
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
@@ -36,9 +38,7 @@ import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Modifier
-import androidx.compose.ui.platform.LocalClipboardManager
 import androidx.compose.ui.platform.LocalContext
-import androidx.compose.ui.text.AnnotatedString
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import com.example.einkaufsliste.ui.viewmodel.ShoppingViewModel
@@ -51,7 +51,9 @@ fun HouseholdScreen(
 ) {
     val household by viewModel.household.collectAsState()
     val context = LocalContext.current
-    val clipboard = LocalClipboardManager.current
+    val clipboard = remember(context) {
+        context.getSystemService(ClipboardManager::class.java)
+    }
     var householdName by remember(household.name) { mutableStateOf(household.name) }
     var joinCode by remember { mutableStateOf("") }
     var message by remember { mutableStateOf<String?>(null) }
@@ -107,7 +109,9 @@ fun HouseholdScreen(
                         }
                         OutlinedButton(
                             onClick = {
-                                clipboard.setText(AnnotatedString(household.code))
+                                clipboard?.setPrimaryClip(
+                                    ClipData.newPlainText("household_code", household.code)
+                                )
                                 message = "Code kopiert."
                             },
                             modifier = Modifier.weight(1f)
