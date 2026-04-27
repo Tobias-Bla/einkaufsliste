@@ -16,6 +16,7 @@ import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Add
+import androidx.compose.material.icons.filled.Inventory2
 import androidx.compose.material.icons.filled.ShoppingCart
 import androidx.compose.material3.Card
 import androidx.compose.material3.ExperimentalMaterial3Api
@@ -42,7 +43,8 @@ fun RecipeListScreen(
     viewModel: ShoppingViewModel,
     onRecipeClick: (Recipe) -> Unit,
     onAddRecipeClick: () -> Unit,
-    onViewShoppingList: () -> Unit
+    onViewShoppingList: () -> Unit,
+    onManageProducts: () -> Unit
 ) {
     val recipes by viewModel.allRecipes.collectAsState()
 
@@ -51,6 +53,9 @@ fun RecipeListScreen(
             TopAppBar(
                 title = { Text("Rezepte") },
                 actions = {
+                    IconButton(onClick = onManageProducts) {
+                        Icon(Icons.Default.Inventory2, contentDescription = "Produkte")
+                    }
                     IconButton(onClick = onViewShoppingList) {
                         Icon(Icons.Default.ShoppingCart, contentDescription = "Einkaufsliste")
                     }

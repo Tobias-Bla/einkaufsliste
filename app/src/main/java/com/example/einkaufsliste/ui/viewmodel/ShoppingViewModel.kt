@@ -2,18 +2,29 @@ package com.example.einkaufsliste.ui.viewmodel
 
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
+import com.example.einkaufsliste.data.catalog.IngredientCatalogEntry
+import com.example.einkaufsliste.data.catalog.RecipeCatalogSeedDataSource
 import com.example.einkaufsliste.data.local.HouseholdState
+import com.example.einkaufsliste.data.model.Ingredient
 import com.example.einkaufsliste.data.model.IngredientItem
 import com.example.einkaufsliste.data.model.Recipe
+import com.example.einkaufsliste.data.model.ShoppingListContribution
 import com.example.einkaufsliste.data.model.ShoppingListItem
 import com.example.einkaufsliste.data.repository.RecipeRepository
 import com.example.einkaufsliste.data.repository.normalizedKey
+import kotlinx.coroutines.flow.combine
 import kotlinx.coroutines.flow.SharingStarted
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.stateIn
 import kotlinx.coroutines.launch
+import java.util.UUID
 
-class ShoppingViewModel(private val repository: RecipeRepository) : ViewModel() {
+class ShoppingViewModel(
+    private val repository: RecipeRepository,
+    recipeCatalogSeedDataSource: RecipeCatalogSeedDataSource
+) : ViewModel() {
+
+    private val seedIngredientCatalog = recipeCatalogSeedDataSource.loadIngredientCatalog()
 
     val household: StateFlow<HouseholdState> = repository.household
         .stateIn(
@@ -28,13 +39,31 @@ class ShoppingViewModel(private val repository: RecipeRepository) : ViewModel() 
     val shoppingList: StateFlow<List<ShoppingListItem>> = repository.shoppingList
         .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5000), emptyList())
 
+    val customIngredients: StateFlow<List<Ingredient>> = repository.customIngredients
+        .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5000), emptyList())
+
+    val purchasedRecipeStats: StateFlow<List<com.example.einkaufsliste.data.model.PurchasedRecipeStat>> =
+        repository.purchasedRecipeStats
+            .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5000), emptyList())
+
+    val purchasedProductStats: StateFlow<List<com.example.einkaufsliste.data.model.PurchasedProductStat>> =
+        repository.purchasedProductStats
+            .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5000), emptyList())
+
+    val ingredientCatalog: StateFlow<List<IngredientCatalogEntry>> = repository.customIngredients
+        .combine(kotlinx.coroutines.flow.flowOf(seedIngredientCatalog)) { customIngredients, seedCatalog ->
+            mergeIngredientCatalog(seedCatalog, customIngredients)
+        }
+        .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5000), seedIngredientCatalog)
+
     val syncStatus = repository.syncStatus
 
     init {
         repository.startSync(viewModelScope)
     }
 
-    fun addRecipe(
+    fun saveRecipe(
+        recipeId: String = "",
         name: String,
         description: String,
         imageUrl: String?,
@@ -44,6 +73,7 @@ class ShoppingViewModel(private val repository: RecipeRepository) : ViewModel() 
         viewModelScope.launch {
             repository.insertRecipe(
                 Recipe(
+                    id = recipeId,
                     name = name.trim(),
                     description = description.trim(),
                     imageUrl = imageUrl,
@@ -82,7 +112,15 @@ class ShoppingViewModel(private val repository: RecipeRepository) : ViewModel() 
                     amount = amount.trim(),
                     unit = unit.trim(),
                     category = category.trim().ifBlank { "Sonstiges" },
-                    sourceRecipeName = sourceRecipeName
+                    sourceRecipeName = sourceRecipeName,
+                    contributions = listOf(
+                        ShoppingListContribution(
+                            key = UUID.randomUUID().toString(),
+                            label = null,
+                            amount = amount.trim(),
+                            type = ShoppingListContribution.TYPE_MANUAL
+                        )
+                    )
                 )
             )
         }
@@ -96,13 +134,39 @@ class ShoppingViewModel(private val repository: RecipeRepository) : ViewModel() 
         }
 
         ingredients.forEach { ingredient ->
-            addToShoppingList(
-                name = ingredient.name,
-                amount = ingredient.amount,
-                unit = ingredient.unit,
-                category = ingredient.category,
-                sourceRecipeName = recipe.name
-            )
+            if (ingredient.name.isBlank()) return@forEach
+
+            viewModelScope.launch {
+                repository.addToShoppingList(
+                    ShoppingListItem(
+                        ingredientName = ingredient.name.trim(),
+                        normalizedName = ingredient.name.normalizedKey(),
+                        amount = ingredient.amount.trim(),
+                        unit = ingredient.unit.trim(),
+                        category = ingredient.category.trim().ifBlank { "Sonstiges" },
+                        sourceRecipeName = recipe.name,
+                        contributions = listOf(
+                            ShoppingListContribution(
+                                key = recipe.id,
+                                label = recipe.name,
+                                amount = ingredient.amount.trim(),
+                                type = ShoppingListContribution.TYPE_RECIPE
+                            )
+                        )
+                    )
+                )
+            }
+        }
+    }
+
+    fun addSavedRecipeToShoppingList(recipeId: String) {
+        val recipe = allRecipes.value.firstOrNull { it.id == recipeId } ?: return
+        addRecipeToShoppingList(recipe)
+    }
+
+    fun removeRecipeFromShoppingList(recipe: Recipe) {
+        viewModelScope.launch {
+            repository.removeRecipeFromShoppingList(recipe)
         }
     }
 
@@ -134,6 +198,34 @@ class ShoppingViewModel(private val repository: RecipeRepository) : ViewModel() 
 
     fun createNewHousehold() = repository.createNewHousehold()
 
+    fun saveIngredient(
+        id: String = "",
+        name: String,
+        defaultAmount: String,
+        defaultUnit: String,
+        category: String
+    ) {
+        if (name.isBlank()) return
+
+        viewModelScope.launch {
+            repository.upsertIngredient(
+                Ingredient(
+                    id = id.ifBlank { UUID.randomUUID().toString() },
+                    name = name,
+                    category = category,
+                    defaultAmount = defaultAmount,
+                    defaultUnit = defaultUnit
+                )
+            )
+        }
+    }
+
+    fun deleteIngredient(ingredient: Ingredient) {
+        viewModelScope.launch {
+            repository.deleteIngredient(ingredient)
+        }
+    }
+
     private fun List<IngredientItem>.cleanIngredients(): List<IngredientItem> =
         mapNotNull { ingredient ->
             val name = ingredient.name.trim()
@@ -148,4 +240,24 @@ class ShoppingViewModel(private val repository: RecipeRepository) : ViewModel() 
                 )
             }
         }
+
+    private fun mergeIngredientCatalog(
+        seedCatalog: List<IngredientCatalogEntry>,
+        customIngredients: List<Ingredient>
+    ): List<IngredientCatalogEntry> {
+        val customEntries = customIngredients.map { ingredient ->
+            IngredientCatalogEntry(
+                name = ingredient.name,
+                defaultAmount = ingredient.defaultAmount,
+                defaultUnit = ingredient.defaultUnit,
+                category = ingredient.category,
+                imageUrl = null
+            )
+        }
+
+        return (customEntries + seedCatalog)
+            .filter { it.name.isNotBlank() }
+            .distinctBy { it.name.normalizedKey() }
+            .sortedBy { it.name.lowercase() }
+    }
 }

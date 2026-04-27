@@ -17,6 +17,7 @@ import androidx.navigation.compose.composable
 import androidx.navigation.compose.rememberNavController
 import com.example.einkaufsliste.ui.screens.AddRecipeScreen
 import com.example.einkaufsliste.ui.screens.HouseholdScreen
+import com.example.einkaufsliste.ui.screens.ProductCatalogScreen
 import com.example.einkaufsliste.ui.screens.RecipeDetailScreen
 import com.example.einkaufsliste.ui.screens.RecipeListScreen
 import com.example.einkaufsliste.ui.screens.ShoppingListScreen
@@ -46,7 +47,10 @@ fun MainApp() {
         factory = object : ViewModelProvider.Factory {
             @Suppress("UNCHECKED_CAST")
             override fun <T : ViewModel> create(modelClass: Class<T>): T {
-                return ShoppingViewModel(appContainer.recipeRepository) as T
+                return ShoppingViewModel(
+                    repository = appContainer.recipeRepository,
+                    recipeCatalogSeedDataSource = appContainer.recipeCatalogSeedDataSource
+                ) as T
             }
         }
     )
@@ -64,6 +68,12 @@ fun MainApp() {
     )
 
     val navController = rememberNavController()
+    val navigateToRecipesOverview: () -> Unit = {
+        navController.navigate("recipes") {
+            popUpTo("recipes") { inclusive = false }
+            launchSingleTop = true
+        }
+    }
 
     NavHost(navController = navController, startDestination = "today") {
         composable("today") {
@@ -92,7 +102,8 @@ fun MainApp() {
                     navController.navigate("recipe_detail/${recipe.id}")
                 },
                 onAddRecipeClick = { navController.navigate("add_recipe") },
-                onViewShoppingList = { navController.navigate("shopping_list") }
+                onViewShoppingList = { navController.navigate("shopping_list") },
+                onManageProducts = { navController.navigate("products") }
             )
         }
         composable("recipe_detail/{recipeId}") { backStackEntry ->
@@ -103,6 +114,7 @@ fun MainApp() {
                 RecipeDetailScreen(
                     recipe = recipe,
                     viewModel = shoppingViewModel,
+                    onEdit = { navController.navigate("edit_recipe/${recipe.id}") },
                     onBack = { navController.popBackStack() }
                 )
             }
@@ -110,7 +122,29 @@ fun MainApp() {
         composable("add_recipe") {
             AddRecipeScreen(
                 viewModel = shoppingViewModel,
-                onRecipeAdded = { navController.popBackStack() },
+                initialRecipe = null,
+                onRecipeAdded = navigateToRecipesOverview,
+                onBack = { navController.popBackStack() },
+                onManageProducts = { navController.navigate("products") }
+            )
+        }
+        composable("edit_recipe/{recipeId}") { backStackEntry ->
+            val recipeId = backStackEntry.arguments?.getString("recipeId")
+            val recipes by shoppingViewModel.allRecipes.collectAsState()
+            val recipe = recipes.find { it.id == recipeId }
+            if (recipe != null) {
+                AddRecipeScreen(
+                    viewModel = shoppingViewModel,
+                    initialRecipe = recipe,
+                    onRecipeAdded = navigateToRecipesOverview,
+                    onBack = { navController.popBackStack() },
+                    onManageProducts = { navController.navigate("products") }
+                )
+            }
+        }
+        composable("products") {
+            ProductCatalogScreen(
+                viewModel = shoppingViewModel,
                 onBack = { navController.popBackStack() }
             )
         }
@@ -118,7 +152,8 @@ fun MainApp() {
             ShoppingListScreen(
                 viewModel = shoppingViewModel,
                 onViewRecipes = { navController.navigate("recipes") },
-                onOpenHousehold = { navController.navigate("household") }
+                onOpenHousehold = { navController.navigate("household") },
+                onManageProducts = { navController.navigate("products") }
             )
         }
         composable("household") {

@@ -2,6 +2,7 @@ package com.example.einkaufsliste
 
 import android.content.Context
 import androidx.room.Room
+import com.example.einkaufsliste.data.catalog.RecipeCatalogSeedDataSource
 import com.example.einkaufsliste.data.discovery.LocalDiscoveryRepository
 import com.example.einkaufsliste.data.local.AppDatabase
 import com.example.einkaufsliste.data.local.HouseholdStore
@@ -18,19 +19,30 @@ class AppContainer(context: Context) {
             appContext,
             AppDatabase::class.java,
             "shopping-db"
-        ).fallbackToDestructiveMigration(dropAllTables = true).build()
+        )
+            .addMigrations(
+                AppDatabase.MIGRATION_3_4,
+                AppDatabase.MIGRATION_4_5,
+                AppDatabase.MIGRATION_5_6
+            )
+            .fallbackToDestructiveMigration(dropAllTables = true)
+            .build()
     }
 
     private val householdStore: HouseholdStore by lazy { HouseholdStore(appContext) }
     private val authService: AuthService by lazy { AuthService() }
     private val firestoreService: FirestoreService by lazy { FirestoreService() }
+    val recipeCatalogSeedDataSource: RecipeCatalogSeedDataSource by lazy {
+        RecipeCatalogSeedDataSource(appContext)
+    }
 
     val recipeRepository: RecipeRepository by lazy {
         RecipeRepository(
             recipeDao = database.recipeDao(),
             authService = authService,
             firestoreService = firestoreService,
-            householdStore = householdStore
+            householdStore = householdStore,
+            recipeCatalogSeedDataSource = recipeCatalogSeedDataSource
         )
     }
 

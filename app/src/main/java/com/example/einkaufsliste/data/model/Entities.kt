@@ -23,11 +23,25 @@ data class IngredientItem(
     var category: String = "Sonstiges"
 )
 
+data class ShoppingListContribution(
+    var key: String = "",
+    var label: String? = null,
+    var amount: String = "",
+    var type: String = TYPE_MANUAL
+) {
+    companion object {
+        const val TYPE_MANUAL = "manual"
+        const val TYPE_RECIPE = "recipe"
+    }
+}
+
 @Entity(tableName = "ingredients")
 data class Ingredient(
     @PrimaryKey var id: String = "",
     var name: String = "",
-    var category: String = "Sonstiges"
+    var category: String = "Sonstiges",
+    var defaultAmount: String = "",
+    var defaultUnit: String = ""
 )
 
 @Entity(
@@ -56,6 +70,24 @@ data class ShoppingListItem(
     var category: String = "Sonstiges",
     var isChecked: Boolean = false,
     var sourceRecipeName: String? = null,
+    var contributions: List<ShoppingListContribution> = emptyList(),
     var createdAt: Long = System.currentTimeMillis(),
     var checkedAt: Long? = null
+)
+
+@Entity(tableName = "purchased_recipe_stats")
+data class PurchasedRecipeStat(
+    @PrimaryKey var recipeId: String = "",
+    var recipeName: String = "",
+    var purchaseCount: Int = 0,
+    var lastPurchasedAt: Long = 0L
+)
+
+@Entity(tableName = "purchased_product_stats")
+data class PurchasedProductStat(
+    @PrimaryKey var normalizedName: String = "",
+    var productName: String = "",
+    var category: String = "Sonstiges",
+    var purchaseCount: Int = 0,
+    var lastPurchasedAt: Long = 0L
 )

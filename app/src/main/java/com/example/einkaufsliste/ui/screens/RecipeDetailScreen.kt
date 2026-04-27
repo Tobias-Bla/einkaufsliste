@@ -12,8 +12,10 @@ import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.ArrowBack
+import androidx.compose.material.icons.filled.Add
 import androidx.compose.material.icons.filled.AddShoppingCart
 import androidx.compose.material.icons.filled.Delete
+import androidx.compose.material.icons.filled.Edit
 import androidx.compose.material3.AssistChip
 import androidx.compose.material3.Card
 import androidx.compose.material3.CardDefaults
@@ -39,6 +41,7 @@ import com.example.einkaufsliste.ui.viewmodel.ShoppingViewModel
 fun RecipeDetailScreen(
     recipe: Recipe,
     viewModel: ShoppingViewModel,
+    onEdit: () -> Unit,
     onBack: () -> Unit
 ) {
     Scaffold(
@@ -51,6 +54,9 @@ fun RecipeDetailScreen(
                     }
                 },
                 actions = {
+                    IconButton(onClick = onEdit) {
+                        Icon(Icons.Default.Edit, contentDescription = "Rezept bearbeiten")
+                    }
                     IconButton(onClick = {
                         viewModel.deleteRecipe(recipe)
                         onBack()
@@ -61,8 +67,13 @@ fun RecipeDetailScreen(
             )
         },
         floatingActionButton = {
-            FloatingActionButton(onClick = { viewModel.addRecipeToShoppingList(recipe) }) {
-                Icon(Icons.Default.AddShoppingCart, contentDescription = "Zutaten auf Liste")
+            FloatingActionButton(
+                onClick = {
+                    viewModel.addRecipeToShoppingList(recipe)
+                    onBack()
+                }
+            ) {
+                Icon(Icons.Default.Add, contentDescription = "Zutaten auf Einkaufsliste")
             }
         }
     ) { padding ->

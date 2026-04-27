@@ -108,6 +108,17 @@ fun TodayScreen(
                 )
             }
             item {
+                DailyTipCard(
+                    recommendation = uiState.dailyTip,
+                    onViewRecipes = onViewRecipes,
+                    onAddMissingIngredients = {
+                        uiState.dailyTip?.let { tip ->
+                            onAddMissingIngredients(tip.missingIngredients)
+                        }
+                    }
+                )
+            }
+            item {
                 SectionTitle(
                     title = "Angebote in deiner Naehe",
                     subtitle = "Kuratiert fuer ${feed.profile.city} im ${feed.profile.radiusKm}-km-Radius"
@@ -138,6 +149,63 @@ fun TodayScreen(
                             onAddMissingIngredients(recommendation.missingIngredients)
                         }
                     )
+                }
+            }
+        }
+    }
+}
+
+@Composable
+private fun DailyTipCard(
+    recommendation: RecipeRecommendation?,
+    onViewRecipes: () -> Unit,
+    onAddMissingIngredients: () -> Unit
+) {
+    Card(
+        colors = CardDefaults.cardColors(
+            containerColor = MaterialTheme.colorScheme.tertiaryContainer
+        )
+    ) {
+        Column(
+            modifier = Modifier
+                .fillMaxWidth()
+                .padding(18.dp),
+            verticalArrangement = Arrangement.spacedBy(10.dp)
+        ) {
+            Text("Tipp des Tages", style = MaterialTheme.typography.titleLarge)
+            if (recommendation == null) {
+                Text(
+                    text = "Speichere ein paar Rezepte, dann gibt es hier jeden Tag einen passenden Vorschlag.",
+                    style = MaterialTheme.typography.bodyMedium
+                )
+                Button(onClick = onViewRecipes) {
+                    Text("Rezepte ansehen")
+                }
+            } else {
+                Text(
+                    text = recommendation.name,
+                    style = MaterialTheme.typography.headlineSmall,
+                    fontWeight = FontWeight.SemiBold
+                )
+                Text(
+                    text = recommendation.rationale,
+                    style = MaterialTheme.typography.bodyMedium
+                )
+                Text(
+                    text = "Treffer: ${recommendation.matchedIngredients.joinToString(", ")}",
+                    style = MaterialTheme.typography.bodySmall,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant
+                )
+                Row(horizontalArrangement = Arrangement.spacedBy(10.dp)) {
+                    Button(
+                        onClick = onAddMissingIngredients,
+                        enabled = recommendation.missingIngredients.isNotEmpty()
+                    ) {
+                        Text("Fehlendes auf Liste")
+                    }
+                    OutlinedButton(onClick = onViewRecipes) {
+                        Text("Zu den Rezepten")
+                    }
                 }
             }
         }

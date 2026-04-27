@@ -31,8 +31,7 @@ class FirestoreService {
                 snapshot.documents.mapNotNull { document ->
                     document.toObject(ShoppingListItem::class.java)?.copy(id = document.id)
                 }.sortedWith(
-                    compareBy<ShoppingListItem> { it.isChecked }
-                        .thenBy { it.category }
+                    compareBy<ShoppingListItem> { it.category }
                         .thenBy { it.createdAt }
                 )
         }
