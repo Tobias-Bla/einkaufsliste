@@ -83,19 +83,9 @@ fun MainApp() {
                 onViewRecipes = { navController.navigate("recipes") },
                 onViewShoppingList = { navController.navigate("shopping_list") },
                 onOpenHousehold = { navController.navigate("household") },
-                onAddMissingIngredients = { ingredients ->
-                    ingredients.forEach { ingredient ->
-                        shoppingViewModel.addToShoppingList(
-                            name = ingredient.name,
-                            amount = ingredient.amount,
-                            unit = ingredient.unit,
-                            category = ingredient.category
-                        )
-                    }
+                onAddRecipeToShoppingList = { recipeId ->
+                    shoppingViewModel.addSavedRecipeToShoppingList(recipeId)
                     navController.navigate("shopping_list")
-                },
-                onOpenRecipe = { recipeId ->
-                    navController.navigate("recipe_detail/$recipeId")
                 }
             )
         }

@@ -1,5 +1,7 @@
 package com.example.einkaufsliste.ui.screens
 
+import androidx.compose.animation.animateContentSize
+import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
@@ -25,13 +27,15 @@ import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
-import androidx.compose.material3.OutlinedButton
 import androidx.compose.material3.Scaffold
 import androidx.compose.material3.Text
 import androidx.compose.material3.TopAppBar
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.setValue
+import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.text.font.FontWeight
@@ -39,7 +43,6 @@ import androidx.compose.ui.unit.dp
 import coil.compose.AsyncImage
 import com.example.einkaufsliste.data.discovery.MarketOffer
 import com.example.einkaufsliste.data.discovery.NearbyStore
-import com.example.einkaufsliste.domain.recommendation.RecommendationIngredient
 import com.example.einkaufsliste.domain.recommendation.RecipeRecommendation
 import com.example.einkaufsliste.ui.viewmodel.TodayViewModel
 
@@ -50,11 +53,11 @@ fun TodayScreen(
     onViewRecipes: () -> Unit,
     onViewShoppingList: () -> Unit,
     onOpenHousehold: () -> Unit,
-    onAddMissingIngredients: (List<RecommendationIngredient>) -> Unit,
-    onOpenRecipe: (String) -> Unit
+    onAddRecipeToShoppingList: (String) -> Unit
 ) {
     val uiState by viewModel.uiState.collectAsState()
     val feed = uiState.feed
+    var expandedStoreId by rememberSaveable { mutableStateOf<String?>(null) }
     val featuredOffers = feed?.stores
         ?.sortedBy { it.distanceKm }
         ?.flatMap { store -> store.offers.take(2).map { offer -> store to offer } }
@@ -113,12 +116,7 @@ fun TodayScreen(
                     recommendation = uiState.dailyTip,
                     imageUrl = uiState.dailyTipImageUrl,
                     onViewRecipes = onViewRecipes,
-                    onAddMissingIngredients = {
-                        uiState.dailyTip?.let { tip ->
-                            onAddMissingIngredients(tip.missingIngredients)
-                        }
-                    },
-                    onOpenRecipe = onOpenRecipe
+                    onAddRecipeToShoppingList = onAddRecipeToShoppingList
                 )
             }
             item {
@@ -137,11 +135,17 @@ fun TodayScreen(
             item {
                 SectionTitle(
                     title = "Angebote in deiner Naehe",
-                    subtitle = "Kuratiert fuer ${feed.profile.city} im ${feed.profile.radiusKm}-km-Radius"
+                    subtitle = "Waehle einen Markt, um alle aktuellen Angebote zu sehen"
                 )
             }
             items(uiState.highlightedStores, key = { it.id }) { store ->
-                StoreCard(store = store)
+                StoreCard(
+                    store = store,
+                    expanded = expandedStoreId == store.id,
+                    onToggleExpanded = {
+                        expandedStoreId = if (expandedStoreId == store.id) null else store.id
+                    }
+                )
             }
         }
     }
@@ -152,8 +156,7 @@ private fun DailyTipCard(
     recommendation: RecipeRecommendation?,
     imageUrl: String?,
     onViewRecipes: () -> Unit,
-    onAddMissingIngredients: () -> Unit,
-    onOpenRecipe: (String) -> Unit
+    onAddRecipeToShoppingList: (String) -> Unit
 ) {
     Card(
         colors = CardDefaults.cardColors(
@@ -200,31 +203,13 @@ private fun DailyTipCard(
                     style = MaterialTheme.typography.bodySmall,
                     color = MaterialTheme.colorScheme.onSurfaceVariant
                 )
-                Row(
-                    modifier = Modifier.fillMaxWidth(),
-                    horizontalArrangement = Arrangement.spacedBy(10.dp)
+                Button(
+                    onClick = {
+                        recommendation.recipeId?.let(onAddRecipeToShoppingList)
+                    },
+                    enabled = recommendation.recipeId != null
                 ) {
-                    Button(
-                        onClick = onAddMissingIngredients,
-                        enabled = recommendation.missingIngredients.isNotEmpty(),
-                        modifier = Modifier.weight(1f)
-                    ) {
-                        Text("Fehlendes auf Liste")
-                    }
-                    OutlinedButton(
-                        onClick = {
-                            recommendation.recipeId?.let(onOpenRecipe) ?: onViewRecipes()
-                        },
-                        modifier = Modifier.weight(1f)
-                    ) {
-                        Text(
-                            if (recommendation.recipeId != null) {
-                                "Rezept ansehen"
-                            } else {
-                                "Zu den Rezepten"
-                            }
-                        )
-                    }
+                    Text("Rezept hinzufuegen")
                 }
             }
         }
@@ -296,9 +281,17 @@ private fun OfferHighlightCard(
 }
 
 @Composable
-private fun StoreCard(store: NearbyStore) {
+private fun StoreCard(
+    store: NearbyStore,
+    expanded: Boolean,
+    onToggleExpanded: () -> Unit
+) {
+    val visibleOffers = if (expanded) store.offers else store.offers.take(3)
     Card(
-        modifier = Modifier.fillMaxWidth(),
+        modifier = Modifier
+            .fillMaxWidth()
+            .clickable(onClick = onToggleExpanded)
+            .animateContentSize(),
         colors = CardDefaults.cardColors(
             containerColor = MaterialTheme.colorScheme.surfaceContainer
         )
@@ -329,8 +322,19 @@ private fun StoreCard(store: NearbyStore) {
                 style = MaterialTheme.typography.bodySmall,
                 color = MaterialTheme.colorScheme.onSurfaceVariant
             )
+            if (store.offers.size > 3) {
+                Text(
+                    text = if (expanded) {
+                        "Alle ${store.offers.size} Angebote angezeigt - tippen zum Einklappen"
+                    } else {
+                        "${store.offers.size} Angebote verfuegbar - tippen fuer alle Angebote"
+                    },
+                    style = MaterialTheme.typography.bodySmall,
+                    color = MaterialTheme.colorScheme.primary
+                )
+            }
             Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
-                store.offers.take(3).forEach { offer ->
+                visibleOffers.forEach { offer ->
                     Card(
                         colors = CardDefaults.cardColors(
                             containerColor = MaterialTheme.colorScheme.surface
