@@ -324,13 +324,34 @@ class ShoppingViewModel(
             )
         }
 
+        val recipeNotes = buildList {
+            add("KI-Empfehlung basierend auf aktuellen Angeboten.")
+
+            description.trim()
+                .takeIf { it.isNotBlank() }
+                ?.let(::add)
+
+            rationale.trim()
+                .takeIf { it.isNotBlank() }
+                ?.let { add("Warum heute: $it") }
+
+            offerMatches.takeIf { it.isNotEmpty() }
+                ?.joinToString(", ") { "${it.ingredientName} bei ${it.storeName}" }
+                ?.let { add("Passende Angebote: $it") }
+
+            missingIngredients.takeIf { it.isNotEmpty() }
+                ?.joinToString(", ") { ingredient ->
+                    listOf(ingredient.name, ingredient.amount, ingredient.unit)
+                        .filter { it.isNotBlank() }
+                        .joinToString(" ")
+                }
+                ?.let { add("Fehlt noch: $it") }
+        }.joinToString("\n\n")
+
         return Recipe(
             id = recipeId,
             name = name,
-            description = listOf(description.trim(), rationale.trim())
-                .filter { it.isNotBlank() }
-                .distinct()
-                .joinToString("\n\n"),
+            description = recipeNotes,
             imageUrl = imageUrl,
             servings = 2,
             ingredients = ingredientsByName.values.toList()

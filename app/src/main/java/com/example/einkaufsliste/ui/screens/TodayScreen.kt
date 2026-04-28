@@ -17,6 +17,7 @@ import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.MenuBook
+import androidx.compose.material.icons.filled.AutoAwesome
 import androidx.compose.material.icons.filled.Settings
 import androidx.compose.material.icons.filled.ShoppingCart
 import androidx.compose.material3.AssistChip
@@ -44,7 +45,6 @@ import coil.compose.AsyncImage
 import com.example.einkaufsliste.data.discovery.MarketOffer
 import com.example.einkaufsliste.data.discovery.NearbyStore
 import com.example.einkaufsliste.domain.recommendation.RecipeRecommendation
-import com.example.einkaufsliste.domain.recommendation.RecommendationSource
 import com.example.einkaufsliste.ui.viewmodel.TodayViewModel
 
 @OptIn(ExperimentalMaterial3Api::class)
@@ -244,7 +244,7 @@ private fun AiTipCard(
             modifier = Modifier
                 .fillMaxWidth()
                 .padding(18.dp),
-            verticalArrangement = Arrangement.spacedBy(10.dp)
+            verticalArrangement = Arrangement.spacedBy(8.dp)
         ) {
             Row(
                 modifier = Modifier.fillMaxWidth(),
@@ -253,7 +253,10 @@ private fun AiTipCard(
                 Text("KI-Tipp des Tages", style = MaterialTheme.typography.titleLarge)
                 AssistChip(
                     onClick = {},
-                    label = { Text("${recommendation.score} Punkte") }
+                    label = { Text("Neu") },
+                    leadingIcon = {
+                        Icon(Icons.Default.AutoAwesome, contentDescription = null)
+                    }
                 )
             }
             imageUrl?.takeIf { it.isNotBlank() }?.let { recipeImage ->
@@ -262,7 +265,7 @@ private fun AiTipCard(
                     contentDescription = recommendation.name,
                     modifier = Modifier
                         .fillMaxWidth()
-                        .height(190.dp),
+                        .height(148.dp),
                     contentScale = ContentScale.Crop
                 )
             }
@@ -275,14 +278,16 @@ private fun AiTipCard(
                 text = recommendation.description.ifBlank { recommendation.rationale },
                 style = MaterialTheme.typography.bodyMedium
             )
-            Text(
-                text = recommendation.rationale,
-                style = MaterialTheme.typography.bodySmall,
-                color = MaterialTheme.colorScheme.onSurfaceVariant
-            )
             if (recommendation.offerMatches.isNotEmpty()) {
                 Text(
-                    text = "Angebots-Treffer: ${recommendation.offerMatches.joinToString(", ") { it.ingredientName }}",
+                    text = "Im Angebot: ${recommendation.offerMatches.joinToString(", ") { it.ingredientName }}",
+                    style = MaterialTheme.typography.bodySmall,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant
+                )
+            }
+            if (recommendation.missingIngredients.isNotEmpty()) {
+                Text(
+                    text = "Fehlt noch: ${recommendation.missingIngredients.joinToString(", ") { it.name }}",
                     style = MaterialTheme.typography.bodySmall,
                     color = MaterialTheme.colorScheme.onSurfaceVariant
                 )
