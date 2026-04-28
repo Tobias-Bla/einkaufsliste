@@ -16,8 +16,6 @@ import androidx.compose.foundation.lazy.LazyRow
 import androidx.compose.foundation.lazy.items
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.MenuBook
-import androidx.compose.material.icons.filled.LocalOffer
-import androidx.compose.material.icons.filled.Schedule
 import androidx.compose.material.icons.filled.Settings
 import androidx.compose.material.icons.filled.ShoppingCart
 import androidx.compose.material3.AssistChip
@@ -126,21 +124,14 @@ fun TodayScreen(
                 )
             }
             item {
-                OverviewCard(
-                    storeCount = feed.stores.size,
-                    offerCount = feed.offers.size,
-                    recommendationCount = uiState.recommendations.size,
-                    updatedAtLabel = feed.updatedAtLabel,
-                    preferredChains = feed.profile.preferredChains
-                )
-            }
-            if (featuredOffers.isNotEmpty()) {
-                item {
+                if (featuredOffers.isNotEmpty()) {
                     SectionTitle(
                         title = "Schnellueberblick",
                         subtitle = "Die naechsten interessanten Angebote fuer deinen Einkauf"
                     )
                 }
+            }
+            if (featuredOffers.isNotEmpty()) {
                 items(featuredOffers, key = { (_, offer) -> offer.id }) { (store, offer) ->
                     OfferHighlightCard(store = store, offer = offer)
                 }
@@ -259,94 +250,6 @@ private fun DailyTipCard(
                     }
                 }
             }
-        }
-    }
-}
-
-@Composable
-private fun OverviewCard(
-    storeCount: Int,
-    offerCount: Int,
-    recommendationCount: Int,
-    updatedAtLabel: String,
-    preferredChains: List<String>
-) {
-    Card(
-        colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.primaryContainer)
-    ) {
-        Column(
-            modifier = Modifier
-                .fillMaxWidth()
-                .padding(18.dp),
-            verticalArrangement = Arrangement.spacedBy(14.dp)
-        ) {
-            Text("Einkauf im Blick", style = MaterialTheme.typography.titleLarge)
-            Row(
-                modifier = Modifier.fillMaxWidth(),
-                horizontalArrangement = Arrangement.spacedBy(10.dp)
-            ) {
-                OverviewMetric(
-                    modifier = Modifier.weight(1f),
-                    label = "Maerkte",
-                    value = storeCount.toString()
-                )
-                OverviewMetric(
-                    modifier = Modifier.weight(1f),
-                    label = "Angebote",
-                    value = offerCount.toString()
-                )
-                OverviewMetric(
-                    modifier = Modifier.weight(1f),
-                    label = "Ideen",
-                    value = recommendationCount.toString()
-                )
-            }
-            Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-                AssistChip(
-                    onClick = {},
-                    label = { Text(updatedAtLabel) },
-                    leadingIcon = {
-                        Icon(Icons.Default.Schedule, contentDescription = null)
-                    }
-                )
-                if (preferredChains.isNotEmpty()) {
-                    AssistChip(
-                        onClick = {},
-                        label = { Text(preferredChains.joinToString(", ")) },
-                        leadingIcon = {
-                            Icon(Icons.Default.LocalOffer, contentDescription = null)
-                        }
-                    )
-                }
-            }
-        }
-    }
-}
-
-@Composable
-private fun OverviewMetric(
-    modifier: Modifier = Modifier,
-    label: String,
-    value: String
-) {
-    Card(
-        modifier = modifier,
-        colors = CardDefaults.cardColors(
-            containerColor = MaterialTheme.colorScheme.surface.copy(alpha = 0.55f)
-        )
-    ) {
-        Column(
-            modifier = Modifier
-                .fillMaxWidth()
-                .padding(horizontal = 14.dp, vertical = 12.dp),
-            verticalArrangement = Arrangement.spacedBy(2.dp)
-        ) {
-            Text(value, style = MaterialTheme.typography.headlineSmall, fontWeight = FontWeight.Bold)
-            Text(
-                text = label,
-                style = MaterialTheme.typography.labelMedium,
-                color = MaterialTheme.colorScheme.onSurfaceVariant
-            )
         }
     }
 }

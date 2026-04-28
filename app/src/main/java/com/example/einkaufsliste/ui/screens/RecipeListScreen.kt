@@ -68,8 +68,6 @@ fun RecipeListScreen(
                 }
         }
     }
-    val ingredientCount = filteredRecipes.sumOf { it.ingredients.size }
-
     Scaffold(
         topBar = {
             TopAppBar(
@@ -98,12 +96,6 @@ fun RecipeListScreen(
             verticalArrangement = Arrangement.spacedBy(12.dp)
         ) {
             item {
-                RecipeOverviewCard(
-                    recipeCount = filteredRecipes.size,
-                    ingredientCount = ingredientCount
-                )
-            }
-            item {
                 OutlinedTextField(
                     value = searchQuery,
                     onValueChange = { searchQuery = it },
@@ -129,60 +121,6 @@ fun RecipeListScreen(
                     )
                 }
             }
-        }
-    }
-}
-
-@Composable
-private fun RecipeOverviewCard(
-    recipeCount: Int,
-    ingredientCount: Int
-) {
-    Card(
-        colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.primaryContainer)
-    ) {
-        Row(
-            modifier = Modifier
-                .fillMaxWidth()
-                .padding(16.dp),
-            horizontalArrangement = Arrangement.spacedBy(12.dp)
-        ) {
-            RecipeOverviewMetric(
-                modifier = Modifier.weight(1f),
-                label = "Rezepte",
-                value = recipeCount.toString()
-            )
-            RecipeOverviewMetric(
-                modifier = Modifier.weight(1f),
-                label = "Zutaten",
-                value = ingredientCount.toString()
-            )
-        }
-    }
-}
-
-@Composable
-private fun RecipeOverviewMetric(
-    modifier: Modifier = Modifier,
-    label: String,
-    value: String
-) {
-    Card(
-        modifier = modifier,
-        colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surface.copy(alpha = 0.55f))
-    ) {
-        Column(
-            modifier = Modifier
-                .fillMaxWidth()
-                .padding(horizontal = 14.dp, vertical = 12.dp),
-            verticalArrangement = Arrangement.spacedBy(2.dp)
-        ) {
-            Text(value, style = MaterialTheme.typography.headlineSmall)
-            Text(
-                text = label,
-                style = MaterialTheme.typography.labelMedium,
-                color = MaterialTheme.colorScheme.onSurfaceVariant
-            )
         }
     }
 }

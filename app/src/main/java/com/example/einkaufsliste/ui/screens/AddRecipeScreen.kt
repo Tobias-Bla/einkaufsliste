@@ -23,7 +23,6 @@ import androidx.compose.material.icons.filled.Add
 import androidx.compose.material.icons.filled.AutoAwesome
 import androidx.compose.material.icons.filled.Delete
 import androidx.compose.material.icons.filled.Inventory2
-import androidx.compose.material3.AssistChip
 import androidx.compose.material3.Button
 import androidx.compose.material3.Card
 import androidx.compose.material3.CardDefaults
@@ -514,10 +513,6 @@ private fun IngredientListRow(
                 }
                 Column(modifier = Modifier.weight(1f)) {
                     Text(ingredient.name, style = MaterialTheme.typography.titleMedium)
-                    AssistChip(
-                        onClick = {},
-                        label = { Text(ingredient.category.ifBlank { "Sonstiges" }) }
-                    )
                 }
                 IconButton(onClick = onDelete) {
                     Icon(Icons.Default.Delete, contentDescription = "Zutat entfernen")
