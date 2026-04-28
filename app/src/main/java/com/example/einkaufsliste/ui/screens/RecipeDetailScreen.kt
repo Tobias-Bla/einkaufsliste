@@ -50,6 +50,7 @@ fun RecipeDetailScreen(
     onBack: () -> Unit
 ) {
     var showAddedConfirmation by remember { mutableStateOf(false) }
+    var showDeleteConfirmation by remember { mutableStateOf(false) }
 
     Scaffold(
         topBar = {
@@ -64,10 +65,7 @@ fun RecipeDetailScreen(
                     IconButton(onClick = onEdit) {
                         Icon(Icons.Default.Edit, contentDescription = "Rezept bearbeiten")
                     }
-                    IconButton(onClick = {
-                        viewModel.deleteRecipe(recipe)
-                        onBack()
-                    }) {
+                    IconButton(onClick = { showDeleteConfirmation = true }) {
                         Icon(Icons.Default.Delete, contentDescription = "Rezept loeschen")
                     }
                 }
@@ -84,17 +82,41 @@ fun RecipeDetailScreen(
             }
         }
     ) { padding ->
+        if (showDeleteConfirmation) {
+            AlertDialog(
+                onDismissRequest = { showDeleteConfirmation = false },
+                title = { Text("Rezept loeschen?") },
+                text = { Text("${recipe.name} wird aus deiner Datenbank entfernt.") },
+                confirmButton = {
+                    TextButton(
+                        onClick = {
+                            viewModel.deleteRecipe(recipe)
+                            showDeleteConfirmation = false
+                            onBack()
+                        }
+                    ) {
+                        Text("Loeschen")
+                    }
+                },
+                dismissButton = {
+                    TextButton(onClick = { showDeleteConfirmation = false }) {
+                        Text("Abbrechen")
+                    }
+                }
+            )
+        }
+
         if (showAddedConfirmation) {
             AlertDialog(
                 onDismissRequest = {
-                    onBack()
+                    showAddedConfirmation = false
                 },
                 title = { Text("Zur Einkaufsliste hinzugefuegt") },
                 text = { Text("${recipe.name} wurde auf deine Einkaufsliste gesetzt.") },
                 confirmButton = {
                     TextButton(
                         onClick = {
-                            onBack()
+                            showAddedConfirmation = false
                         }
                     ) {
                         Text("OK")

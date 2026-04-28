@@ -2,27 +2,25 @@ package com.example.einkaufsliste.ui.screens
 
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
-import androidx.compose.foundation.layout.BoxWithConstraints
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
-import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.lazy.LazyColumn
+import androidx.compose.foundation.lazy.LazyListScope
 import androidx.compose.foundation.lazy.items
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.MenuBook
-import androidx.compose.material.icons.filled.Add
 import androidx.compose.material.icons.filled.Delete
 import androidx.compose.material.icons.filled.Inventory2
 import androidx.compose.material.icons.filled.Settings
-import androidx.compose.material3.AssistChip
 import androidx.compose.material3.AlertDialog
+import androidx.compose.material3.AssistChip
 import androidx.compose.material3.Button
 import androidx.compose.material3.Card
 import androidx.compose.material3.CardDefaults
@@ -31,6 +29,7 @@ import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
+import androidx.compose.material3.OutlinedTextField
 import androidx.compose.material3.Scaffold
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
@@ -38,10 +37,13 @@ import androidx.compose.material3.TopAppBar
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.remember
+import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
-import androidx.compose.ui.graphics.graphicsLayer
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
+import androidx.compose.ui.graphics.graphicsLayer
 import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.text.style.TextDecoration
 import androidx.compose.ui.unit.dp
@@ -67,8 +69,18 @@ fun ShoppingListScreen(
     val allRecipes by viewModel.allRecipes.collectAsState()
     val ingredientCatalog by viewModel.ingredientCatalog.collectAsState()
     val catalogByName = ingredientCatalog.associateBy { it.name.normalizedKey() }
-    val showClearConfirmation = androidx.compose.runtime.remember { androidx.compose.runtime.mutableStateOf(false) }
+    val showClearConfirmation = remember { mutableStateOf(false) }
     val recipesOnList = rememberRecipesOnShoppingList(shoppingList, allRecipes)
+    val pendingItems = shoppingList
+        .filterNot { it.isChecked }
+        .sortedWith(compareBy<ShoppingListItem> { it.category }.thenBy { it.ingredientName.lowercase() })
+    val checkedItems = shoppingList
+        .filter { it.isChecked }
+        .sortedWith(compareByDescending<ShoppingListItem> { it.checkedAt ?: 0L }.thenBy { it.ingredientName.lowercase() })
+    val groupedPending = pendingItems.groupBy { it.category.ifBlank { "Sonstiges" } }
+    val completedCount = checkedItems.size
+    val totalCount = shoppingList.size
+    val remainingCount = totalCount - completedCount
 
     Scaffold(
         topBar = {
@@ -125,57 +137,228 @@ fun ShoppingListScreen(
             )
         }
 
-        BoxWithConstraints(
+        LazyColumn(
             modifier = Modifier
                 .fillMaxSize()
-                .padding(padding)
-                .padding(16.dp)
+                .padding(padding),
+            verticalArrangement = Arrangement.spacedBy(12.dp),
+            contentPadding = PaddingValues(16.dp)
         ) {
-            val compact = maxWidth < 720.dp
-
-            LazyColumn(
-                modifier = Modifier.fillMaxSize(),
-                verticalArrangement = Arrangement.spacedBy(if (compact) 10.dp else 12.dp),
-                contentPadding = PaddingValues(bottom = 16.dp)
-            ) {
-                item {
-                    Row(
-                        modifier = Modifier.fillMaxWidth(),
-                        horizontalArrangement = Arrangement.spacedBy(10.dp)
-                    ) {
-                        Button(
-                            onClick = onViewRecipes,
-                            modifier = Modifier.weight(1f)
-                        ) {
-                            Icon(Icons.AutoMirrored.Filled.MenuBook, contentDescription = null)
-                            Spacer(Modifier.width(8.dp))
-                            Text("Rezept hinzufuegen")
-                        }
-                        Button(
-                            onClick = onManageProducts,
-                            modifier = Modifier.weight(1f)
-                        ) {
-                            Icon(Icons.Default.Inventory2, contentDescription = null)
-                            Spacer(Modifier.width(8.dp))
-                            Text("Produkt hinzufuegen")
-                        }
-                    }
-                }
-                if (recipesOnList.isNotEmpty()) {
-                    item {
-                        ShoppingRecipeSection(
-                            recipes = recipesOnList,
-                            onRemoveRecipe = viewModel::removeRecipeFromShoppingList
+            item {
+                ShoppingProgressCard(
+                    remainingCount = remainingCount,
+                    completedCount = completedCount,
+                    totalCount = totalCount,
+                    recipeCount = recipesOnList.size
+                )
+            }
+            item {
+                QuickAddCard(
+                    ingredientCatalog = ingredientCatalog,
+                    onAddItem = { name, amount, unit, category ->
+                        viewModel.addToShoppingList(
+                            name = name,
+                            amount = amount,
+                            unit = unit,
+                            category = category
                         )
                     }
-                }
-                shoppingListItems(
-                    shoppingList = shoppingList,
-                    catalogByName = catalogByName,
-                    onCheckedChange = viewModel::toggleShoppingItem,
-                    onDelete = viewModel::deleteShoppingItem,
-                    compact = compact
                 )
+            }
+            item {
+                Row(
+                    modifier = Modifier.fillMaxWidth(),
+                    horizontalArrangement = Arrangement.spacedBy(10.dp)
+                ) {
+                    Button(
+                        onClick = onViewRecipes,
+                        modifier = Modifier.weight(1f)
+                    ) {
+                        Icon(Icons.AutoMirrored.Filled.MenuBook, contentDescription = null)
+                        Spacer(Modifier.width(8.dp))
+                        Text("Rezept hinzufuegen")
+                    }
+                    Button(
+                        onClick = onManageProducts,
+                        modifier = Modifier.weight(1f)
+                    ) {
+                        Icon(Icons.Default.Inventory2, contentDescription = null)
+                        Spacer(Modifier.width(8.dp))
+                        Text("Produkt hinzufuegen")
+                    }
+                }
+            }
+            if (recipesOnList.isNotEmpty()) {
+                item {
+                    ShoppingRecipeSection(
+                        recipes = recipesOnList,
+                        onRemoveRecipe = viewModel::removeRecipeFromShoppingList
+                    )
+                }
+            }
+            shoppingListSections(
+                groupedPending = groupedPending,
+                checkedItems = checkedItems,
+                catalogByName = catalogByName,
+                onCheckedChange = viewModel::toggleShoppingItem,
+                onDelete = viewModel::deleteShoppingItem
+            )
+        }
+    }
+}
+
+@Composable
+private fun ShoppingProgressCard(
+    remainingCount: Int,
+    completedCount: Int,
+    totalCount: Int,
+    recipeCount: Int
+) {
+    Card(
+        colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.primaryContainer)
+    ) {
+        Column(
+            modifier = Modifier
+                .fillMaxWidth()
+                .padding(16.dp),
+            verticalArrangement = Arrangement.spacedBy(12.dp)
+        ) {
+            Text("Einkauf heute", style = MaterialTheme.typography.titleLarge)
+            Row(
+                modifier = Modifier.fillMaxWidth(),
+                horizontalArrangement = Arrangement.spacedBy(10.dp)
+            ) {
+                ShoppingMetric(
+                    modifier = Modifier.weight(1f),
+                    label = "Offen",
+                    value = remainingCount.toString()
+                )
+                ShoppingMetric(
+                    modifier = Modifier.weight(1f),
+                    label = "Erledigt",
+                    value = completedCount.toString()
+                )
+                ShoppingMetric(
+                    modifier = Modifier.weight(1f),
+                    label = "Rezepte",
+                    value = recipeCount.toString()
+                )
+            }
+            Text(
+                text = if (totalCount == 0) {
+                    "Die Liste ist leer."
+                } else {
+                    "$completedCount von $totalCount Artikeln sind bereits abgehakt."
+                },
+                style = MaterialTheme.typography.bodyMedium,
+                color = MaterialTheme.colorScheme.onSurfaceVariant
+            )
+        }
+    }
+}
+
+@Composable
+private fun ShoppingMetric(
+    modifier: Modifier = Modifier,
+    label: String,
+    value: String
+) {
+    Card(
+        modifier = modifier,
+        colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surface.copy(alpha = 0.55f))
+    ) {
+        Column(
+            modifier = Modifier
+                .fillMaxWidth()
+                .padding(horizontal = 14.dp, vertical = 12.dp),
+            verticalArrangement = Arrangement.spacedBy(2.dp)
+        ) {
+            Text(value, style = MaterialTheme.typography.headlineSmall)
+            Text(
+                text = label,
+                style = MaterialTheme.typography.labelMedium,
+                color = MaterialTheme.colorScheme.onSurfaceVariant
+            )
+        }
+    }
+}
+
+@Composable
+private fun QuickAddCard(
+    ingredientCatalog: List<IngredientCatalogEntry>,
+    onAddItem: (name: String, amount: String, unit: String, category: String) -> Unit
+) {
+    var name by remember { mutableStateOf("") }
+    var amount by remember { mutableStateOf("") }
+    var unit by remember { mutableStateOf("") }
+    var category by remember { mutableStateOf("Sonstiges") }
+
+    fun applyCatalogDefaults(productName: String) {
+        val entry = ingredientCatalog.firstOrNull { it.name.equals(productName, ignoreCase = true) } ?: return
+        if (amount.isBlank()) amount = entry.defaultAmount
+        if (unit.isBlank()) unit = entry.defaultUnit
+        if (category.isBlank() || category == "Sonstiges") category = entry.category
+    }
+
+    Card(
+        colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surfaceContainer)
+    ) {
+        Column(
+            modifier = Modifier
+                .fillMaxWidth()
+                .padding(16.dp),
+            verticalArrangement = Arrangement.spacedBy(12.dp)
+        ) {
+            Text("Schnell hinzufuegen", style = MaterialTheme.typography.titleMedium)
+            OutlinedTextField(
+                value = name,
+                onValueChange = {
+                    name = it
+                    applyCatalogDefaults(it)
+                },
+                label = { Text("Artikel") },
+                singleLine = true,
+                modifier = Modifier.fillMaxWidth()
+            )
+            Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                OutlinedTextField(
+                    value = amount,
+                    onValueChange = { amount = it },
+                    label = { Text("Menge") },
+                    singleLine = true,
+                    modifier = Modifier.weight(1f)
+                )
+                OutlinedTextField(
+                    value = unit,
+                    onValueChange = { unit = it },
+                    label = { Text("Einheit") },
+                    singleLine = true,
+                    modifier = Modifier.weight(1f)
+                )
+            }
+            OutlinedTextField(
+                value = category,
+                onValueChange = { category = it },
+                label = { Text("Kategorie") },
+                singleLine = true,
+                modifier = Modifier.fillMaxWidth()
+            )
+            Row(
+                modifier = Modifier.fillMaxWidth(),
+                horizontalArrangement = Arrangement.End
+            ) {
+                Button(
+                    onClick = {
+                        onAddItem(name.trim(), amount.trim(), unit.trim(), category.trim().ifBlank { "Sonstiges" })
+                        name = ""
+                        amount = ""
+                        unit = ""
+                        category = "Sonstiges"
+                    },
+                    enabled = name.isNotBlank()
+                ) {
+                    Text("Zur Liste")
+                }
             }
         }
     }
@@ -254,28 +437,60 @@ private fun RecipeOnShoppingListRow(
     }
 }
 
-private fun androidx.compose.foundation.lazy.LazyListScope.shoppingListItems(
-    shoppingList: List<ShoppingListItem>,
+private fun LazyListScope.shoppingListSections(
+    groupedPending: Map<String, List<ShoppingListItem>>,
+    checkedItems: List<ShoppingListItem>,
     catalogByName: Map<String, IngredientCatalogEntry>,
     onCheckedChange: (ShoppingListItem) -> Unit,
-    onDelete: (ShoppingListItem) -> Unit,
-    compact: Boolean
+    onDelete: (ShoppingListItem) -> Unit
 ) {
-    if (shoppingList.isEmpty()) {
+    if (groupedPending.isEmpty() && checkedItems.isEmpty()) {
         item {
             EmptyShoppingList()
         }
-    } else {
+        return
+    }
+
+    groupedPending
+        .toSortedMap(compareBy { it.lowercase() })
+        .forEach { (category, itemsInCategory) ->
+            item(key = "category-$category") {
+                Text(
+                    text = category,
+                    style = MaterialTheme.typography.titleMedium,
+                    modifier = Modifier.padding(top = 8.dp, bottom = 2.dp)
+                )
+            }
+            items(
+                items = itemsInCategory,
+                key = { it.id.ifBlank { "${it.ingredientName}-${it.createdAt}" } }
+            ) { item ->
+                ShoppingItemRow(
+                    item = item,
+                    imageUrl = catalogByName[item.normalizedName]?.imageUrl,
+                    onCheckedChange = { onCheckedChange(item) },
+                    onDelete = { onDelete(item) }
+                )
+            }
+        }
+
+    if (checkedItems.isNotEmpty()) {
+        item(key = "checked-heading") {
+            Text(
+                text = "Erledigt",
+                style = MaterialTheme.typography.titleMedium,
+                modifier = Modifier.padding(top = 8.dp, bottom = 2.dp)
+            )
+        }
         items(
-            items = shoppingList,
+            items = checkedItems,
             key = { it.id.ifBlank { "${it.ingredientName}-${it.createdAt}" } }
         ) { item ->
             ShoppingItemRow(
                 item = item,
                 imageUrl = catalogByName[item.normalizedName]?.imageUrl,
                 onCheckedChange = { onCheckedChange(item) },
-                onDelete = { onDelete(item) },
-                compact = compact
+                onDelete = { onDelete(item) }
             )
         }
     }
@@ -286,8 +501,7 @@ private fun ShoppingItemRow(
     item: ShoppingListItem,
     imageUrl: String?,
     onCheckedChange: () -> Unit,
-    onDelete: () -> Unit,
-    compact: Boolean
+    onDelete: () -> Unit
 ) {
     Card(
         modifier = Modifier
@@ -302,7 +516,7 @@ private fun ShoppingItemRow(
         )
     ) {
         Row(
-            modifier = Modifier.padding(horizontal = 10.dp, vertical = if (compact) 8.dp else 10.dp),
+            modifier = Modifier.padding(horizontal = 10.dp, vertical = 10.dp),
             verticalAlignment = Alignment.CenterVertically
         ) {
             Checkbox(
@@ -314,7 +528,7 @@ private fun ShoppingItemRow(
                     model = it,
                     contentDescription = null,
                     modifier = Modifier
-                        .size(if (compact) 44.dp else 52.dp)
+                        .size(52.dp)
                         .clip(MaterialTheme.shapes.medium),
                     contentScale = ContentScale.Crop
                 )
@@ -324,11 +538,11 @@ private fun ShoppingItemRow(
                 modifier = Modifier
                     .weight(1f)
                     .padding(horizontal = 4.dp),
-                verticalArrangement = Arrangement.spacedBy(2.dp)
+                verticalArrangement = Arrangement.spacedBy(4.dp)
             ) {
                 Text(
                     text = item.ingredientName,
-                    style = if (compact) MaterialTheme.typography.titleSmall else MaterialTheme.typography.titleMedium,
+                    style = MaterialTheme.typography.titleMedium,
                     textDecoration = if (item.isChecked) TextDecoration.LineThrough else null
                 )
                 val quantity = listOf(item.amount, item.unit)
@@ -337,7 +551,7 @@ private fun ShoppingItemRow(
                 if (quantity.isNotBlank()) {
                     Text(
                         quantity,
-                        style = if (compact) MaterialTheme.typography.bodySmall else MaterialTheme.typography.bodyMedium
+                        style = MaterialTheme.typography.bodyMedium
                     )
                 }
                 Row(
@@ -354,13 +568,13 @@ private fun ShoppingItemRow(
                         onClick = {},
                         label = { Text(item.category.ifBlank { "Sonstiges" }) }
                     )
-                    item.sourceRecipeName?.takeIf { it.isNotBlank() }?.let { source ->
-                        Text(
-                            text = source,
-                            style = MaterialTheme.typography.bodySmall,
-                            color = MaterialTheme.colorScheme.onSurfaceVariant
-                        )
-                    }
+                }
+                item.sourceRecipeName?.takeIf { it.isNotBlank() }?.let { source ->
+                    Text(
+                        text = source,
+                        style = MaterialTheme.typography.bodySmall,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant
+                    )
                 }
             }
             IconButton(onClick = onDelete) {

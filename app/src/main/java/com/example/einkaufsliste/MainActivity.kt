@@ -93,6 +93,9 @@ fun MainApp() {
                         )
                     }
                     navController.navigate("shopping_list")
+                },
+                onOpenRecipe = { recipeId ->
+                    navController.navigate("recipe_detail/$recipeId")
                 }
             )
         }

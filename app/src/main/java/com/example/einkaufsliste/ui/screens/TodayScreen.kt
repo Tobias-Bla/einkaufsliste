@@ -16,6 +16,8 @@ import androidx.compose.foundation.lazy.LazyRow
 import androidx.compose.foundation.lazy.items
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.MenuBook
+import androidx.compose.material.icons.filled.LocalOffer
+import androidx.compose.material.icons.filled.Schedule
 import androidx.compose.material.icons.filled.Settings
 import androidx.compose.material.icons.filled.ShoppingCart
 import androidx.compose.material3.AssistChip
@@ -38,6 +40,7 @@ import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import coil.compose.AsyncImage
+import com.example.einkaufsliste.data.discovery.MarketOffer
 import com.example.einkaufsliste.data.discovery.NearbyStore
 import com.example.einkaufsliste.domain.recommendation.RecommendationIngredient
 import com.example.einkaufsliste.domain.recommendation.RecommendationSource
@@ -51,10 +54,16 @@ fun TodayScreen(
     onViewRecipes: () -> Unit,
     onViewShoppingList: () -> Unit,
     onOpenHousehold: () -> Unit,
-    onAddMissingIngredients: (List<RecommendationIngredient>) -> Unit
+    onAddMissingIngredients: (List<RecommendationIngredient>) -> Unit,
+    onOpenRecipe: (String) -> Unit
 ) {
     val uiState by viewModel.uiState.collectAsState()
     val feed = uiState.feed
+    val featuredOffers = feed?.stores
+        ?.sortedBy { it.distanceKm }
+        ?.flatMap { store -> store.offers.take(2).map { offer -> store to offer } }
+        ?.take(5)
+        .orEmpty()
 
     Scaffold(
         topBar = {
@@ -63,7 +72,8 @@ fun TodayScreen(
                     Column {
                         Text("Heute")
                         Text(
-                            text = feed?.profile?.city ?: "Angebote in der Naehe",
+                            text = feed?.let { "${it.profile.city} - ${it.updatedAtLabel}" }
+                                ?: "Angebote in der Naehe",
                             style = MaterialTheme.typography.labelSmall,
                             color = MaterialTheme.colorScheme.onSurfaceVariant
                         )
@@ -111,8 +121,29 @@ fun TodayScreen(
                         uiState.dailyTip?.let { tip ->
                             onAddMissingIngredients(tip.missingIngredients)
                         }
-                    }
+                    },
+                    onOpenRecipe = onOpenRecipe
                 )
+            }
+            item {
+                OverviewCard(
+                    storeCount = feed.stores.size,
+                    offerCount = feed.offers.size,
+                    recommendationCount = uiState.recommendations.size,
+                    updatedAtLabel = feed.updatedAtLabel,
+                    preferredChains = feed.profile.preferredChains
+                )
+            }
+            if (featuredOffers.isNotEmpty()) {
+                item {
+                    SectionTitle(
+                        title = "Schnellueberblick",
+                        subtitle = "Die naechsten interessanten Angebote fuer deinen Einkauf"
+                    )
+                }
+                items(featuredOffers, key = { (_, offer) -> offer.id }) { (store, offer) ->
+                    OfferHighlightCard(store = store, offer = offer)
+                }
             }
             item {
                 SectionTitle(
@@ -120,12 +151,8 @@ fun TodayScreen(
                     subtitle = "Kuratiert fuer ${feed.profile.city} im ${feed.profile.radiusKm}-km-Radius"
                 )
             }
-            item {
-                LazyRow(horizontalArrangement = Arrangement.spacedBy(12.dp)) {
-                    items(uiState.highlightedStores, key = { it.id }) { store ->
-                        StoreCard(store = store)
-                    }
-                }
+            items(uiState.highlightedStores, key = { it.id }) { store ->
+                StoreCard(store = store)
             }
             item {
                 SectionTitle(
@@ -143,7 +170,8 @@ fun TodayScreen(
                         recommendation = recommendation,
                         onAddMissingIngredients = {
                             onAddMissingIngredients(recommendation.missingIngredients)
-                        }
+                        },
+                        onOpenRecipe = onOpenRecipe
                     )
                 }
             }
@@ -156,7 +184,8 @@ private fun DailyTipCard(
     recommendation: RecipeRecommendation?,
     imageUrl: String?,
     onViewRecipes: () -> Unit,
-    onAddMissingIngredients: () -> Unit
+    onAddMissingIngredients: () -> Unit,
+    onOpenRecipe: (String) -> Unit
 ) {
     Card(
         colors = CardDefaults.cardColors(
@@ -203,18 +232,121 @@ private fun DailyTipCard(
                     style = MaterialTheme.typography.bodySmall,
                     color = MaterialTheme.colorScheme.onSurfaceVariant
                 )
-                Row(horizontalArrangement = Arrangement.spacedBy(10.dp)) {
+                Row(
+                    modifier = Modifier.fillMaxWidth(),
+                    horizontalArrangement = Arrangement.spacedBy(10.dp)
+                ) {
                     Button(
                         onClick = onAddMissingIngredients,
-                        enabled = recommendation.missingIngredients.isNotEmpty()
+                        enabled = recommendation.missingIngredients.isNotEmpty(),
+                        modifier = Modifier.weight(1f)
                     ) {
                         Text("Fehlendes auf Liste")
                     }
-                    OutlinedButton(onClick = onViewRecipes) {
-                        Text("Zu den Rezepten")
+                    OutlinedButton(
+                        onClick = {
+                            recommendation.recipeId?.let(onOpenRecipe) ?: onViewRecipes()
+                        },
+                        modifier = Modifier.weight(1f)
+                    ) {
+                        Text(
+                            if (recommendation.recipeId != null) {
+                                "Rezept ansehen"
+                            } else {
+                                "Zu den Rezepten"
+                            }
+                        )
                     }
                 }
             }
+        }
+    }
+}
+
+@Composable
+private fun OverviewCard(
+    storeCount: Int,
+    offerCount: Int,
+    recommendationCount: Int,
+    updatedAtLabel: String,
+    preferredChains: List<String>
+) {
+    Card(
+        colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.primaryContainer)
+    ) {
+        Column(
+            modifier = Modifier
+                .fillMaxWidth()
+                .padding(18.dp),
+            verticalArrangement = Arrangement.spacedBy(14.dp)
+        ) {
+            Text("Einkauf im Blick", style = MaterialTheme.typography.titleLarge)
+            Row(
+                modifier = Modifier.fillMaxWidth(),
+                horizontalArrangement = Arrangement.spacedBy(10.dp)
+            ) {
+                OverviewMetric(
+                    modifier = Modifier.weight(1f),
+                    label = "Maerkte",
+                    value = storeCount.toString()
+                )
+                OverviewMetric(
+                    modifier = Modifier.weight(1f),
+                    label = "Angebote",
+                    value = offerCount.toString()
+                )
+                OverviewMetric(
+                    modifier = Modifier.weight(1f),
+                    label = "Ideen",
+                    value = recommendationCount.toString()
+                )
+            }
+            Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                AssistChip(
+                    onClick = {},
+                    label = { Text(updatedAtLabel) },
+                    leadingIcon = {
+                        Icon(Icons.Default.Schedule, contentDescription = null)
+                    }
+                )
+                if (preferredChains.isNotEmpty()) {
+                    AssistChip(
+                        onClick = {},
+                        label = { Text(preferredChains.joinToString(", ")) },
+                        leadingIcon = {
+                            Icon(Icons.Default.LocalOffer, contentDescription = null)
+                        }
+                    )
+                }
+            }
+        }
+    }
+}
+
+@Composable
+private fun OverviewMetric(
+    modifier: Modifier = Modifier,
+    label: String,
+    value: String
+) {
+    Card(
+        modifier = modifier,
+        colors = CardDefaults.cardColors(
+            containerColor = MaterialTheme.colorScheme.surface.copy(alpha = 0.55f)
+        )
+    ) {
+        Column(
+            modifier = Modifier
+                .fillMaxWidth()
+                .padding(horizontal = 14.dp, vertical = 12.dp),
+            verticalArrangement = Arrangement.spacedBy(2.dp)
+        ) {
+            Text(value, style = MaterialTheme.typography.headlineSmall, fontWeight = FontWeight.Bold)
+            Text(
+                text = label,
+                style = MaterialTheme.typography.labelMedium,
+                color = MaterialTheme.colorScheme.onSurfaceVariant
+            )
         }
     }
 }
@@ -232,9 +364,61 @@ private fun SectionTitle(title: String, subtitle: String) {
 }
 
 @Composable
+private fun OfferHighlightCard(
+    store: NearbyStore,
+    offer: MarketOffer
+) {
+    Card(
+        colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surfaceContainer)
+    ) {
+        Column(
+            modifier = Modifier
+                .fillMaxWidth()
+                .padding(16.dp),
+            verticalArrangement = Arrangement.spacedBy(8.dp)
+        ) {
+            Row(
+                modifier = Modifier.fillMaxWidth(),
+                horizontalArrangement = Arrangement.SpaceBetween
+            ) {
+                Column(modifier = Modifier.weight(1f)) {
+                    Text(offer.title, style = MaterialTheme.typography.titleMedium)
+                    Text(
+                        text = store.name,
+                        style = MaterialTheme.typography.bodySmall,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant
+                    )
+                }
+                Spacer(modifier = Modifier.width(12.dp))
+                AssistChip(
+                    onClick = {},
+                    label = { Text("${store.distanceKm} km") }
+                )
+            }
+            if (offer.subtitle.isNotBlank()) {
+                Text(
+                    text = offer.subtitle,
+                    style = MaterialTheme.typography.bodyMedium
+                )
+            }
+            Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                AssistChip(
+                    onClick = {},
+                    label = { Text(offer.priceLabel) }
+                )
+                AssistChip(
+                    onClick = {},
+                    label = { Text(offer.validityLabel) }
+                )
+            }
+        }
+    }
+}
+
+@Composable
 private fun StoreCard(store: NearbyStore) {
     Card(
-        modifier = Modifier.width(280.dp),
+        modifier = Modifier.fillMaxWidth(),
         colors = CardDefaults.cardColors(
             containerColor = MaterialTheme.colorScheme.surfaceContainer
         )
@@ -280,10 +464,17 @@ private fun StoreCard(store: NearbyStore) {
                         ) {
                             Text(offer.title, style = MaterialTheme.typography.bodyMedium)
                             Text(
-                                text = "${offer.priceLabel} · ${offer.validityLabel}",
+                                text = "${offer.priceLabel} - ${offer.validityLabel}",
                                 style = MaterialTheme.typography.labelMedium,
                                 color = MaterialTheme.colorScheme.primary
                             )
+                            if (offer.subtitle.isNotBlank()) {
+                                Text(
+                                    text = offer.subtitle,
+                                    style = MaterialTheme.typography.bodySmall,
+                                    color = MaterialTheme.colorScheme.onSurfaceVariant
+                                )
+                            }
                         }
                     }
                 }
@@ -295,7 +486,8 @@ private fun StoreCard(store: NearbyStore) {
 @Composable
 private fun RecommendationCard(
     recommendation: RecipeRecommendation,
-    onAddMissingIngredients: () -> Unit
+    onAddMissingIngredients: () -> Unit,
+    onOpenRecipe: (String) -> Unit
 ) {
     Card(
         colors = CardDefaults.cardColors(
@@ -372,10 +564,15 @@ private fun RecommendationCard(
                 ) {
                     Text("Fehlendes auf Liste")
                 }
-                OutlinedButton(onClick = {}) {
+                OutlinedButton(
+                    onClick = {
+                        recommendation.recipeId?.let(onOpenRecipe)
+                    },
+                    enabled = recommendation.recipeId != null
+                ) {
                     Text(
                         when (recommendation.source) {
-                            RecommendationSource.SAVED -> "Aus deinen Rezepten"
+                            RecommendationSource.SAVED -> "Rezept ansehen"
                             RecommendationSource.AI -> "KI-Idee"
                         }
                     )

@@ -31,7 +31,9 @@ import androidx.compose.material3.Divider
 import androidx.compose.material3.DropdownMenuItem
 import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.ExposedDropdownMenuBox
+import androidx.compose.material3.ExposedDropdownMenuAnchorType
 import androidx.compose.material3.ExposedDropdownMenuDefaults
+import androidx.compose.material3.HorizontalDivider
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
@@ -76,6 +78,7 @@ fun AddRecipeScreen(
     val ingredients = remember { mutableStateListOf(IngredientDraft()) }
     val ingredientCatalog by viewModel.ingredientCatalog.collectAsState()
     val title = if (initialRecipe == null) "Neues Rezept" else "Rezept bearbeiten"
+    val hasNamedIngredient = ingredients.any { it.name.isNotBlank() }
 
     fun fillExample() {
         name = "Spaghetti Bolognese"
@@ -190,7 +193,7 @@ fun AddRecipeScreen(
                         onImageUrlChange = { imageUrl = it },
                         onServingsChange = { servingsText = it.filter(Char::isDigit).take(2) },
                         onSave = ::saveRecipe,
-                        canSave = name.isNotBlank()
+                        canSave = name.isNotBlank() && hasNamedIngredient
                     )
                     IngredientsEditorPanel(
                         ingredients = ingredients,
@@ -218,7 +221,7 @@ fun AddRecipeScreen(
                             onImageUrlChange = { imageUrl = it },
                             onServingsChange = { servingsText = it.filter(Char::isDigit).take(2) },
                             onSave = ::saveRecipe,
-                            canSave = name.isNotBlank()
+                            canSave = name.isNotBlank() && hasNamedIngredient
                         )
                     }
                     Column(
@@ -294,6 +297,15 @@ private fun RecipeDetailsCard(
                 modifier = Modifier.fillMaxWidth(),
                 horizontalArrangement = Arrangement.End
             ) {
+                if (!canSave) {
+                    Text(
+                        text = "Mindestens ein Rezeptname und eine Zutat sind erforderlich.",
+                        style = MaterialTheme.typography.bodySmall,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant,
+                        modifier = Modifier.weight(1f)
+                    )
+                    Spacer(Modifier.width(12.dp))
+                }
                 Button(
                     onClick = onSave,
                     enabled = canSave
@@ -378,7 +390,7 @@ private fun IngredientsEditorPanel(
                 }
             }
 
-            Divider()
+            HorizontalDivider()
 
             Text(
                 text = "Zutat hinzufuegen",
@@ -403,7 +415,10 @@ private fun IngredientsEditorPanel(
                     },
                     modifier = Modifier
                         .fillMaxWidth()
-                        .menuAnchor()
+                        .menuAnchor(
+                            type = ExposedDropdownMenuAnchorType.PrimaryEditable,
+                            enabled = true
+                        )
                 )
                 ExposedDropdownMenu(
                     expanded = expanded && suggestions.isNotEmpty(),
@@ -507,6 +522,23 @@ private fun IngredientListRow(
                 IconButton(onClick = onDelete) {
                     Icon(Icons.Default.Delete, contentDescription = "Zutat entfernen")
                 }
+            }
+
+            Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                OutlinedTextField(
+                    value = ingredient.name,
+                    onValueChange = { onChange(ingredient.copy(name = it)) },
+                    label = { Text("Produkt") },
+                    singleLine = true,
+                    modifier = Modifier.weight(1.4f)
+                )
+                OutlinedTextField(
+                    value = ingredient.category,
+                    onValueChange = { onChange(ingredient.copy(category = it)) },
+                    label = { Text("Kategorie") },
+                    singleLine = true,
+                    modifier = Modifier.weight(1f)
+                )
             }
 
             Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
