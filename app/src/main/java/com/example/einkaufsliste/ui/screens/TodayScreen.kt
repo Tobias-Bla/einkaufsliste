@@ -12,7 +12,6 @@ import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.lazy.LazyColumn
-import androidx.compose.foundation.lazy.LazyRow
 import androidx.compose.foundation.lazy.items
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.MenuBook
@@ -41,7 +40,6 @@ import coil.compose.AsyncImage
 import com.example.einkaufsliste.data.discovery.MarketOffer
 import com.example.einkaufsliste.data.discovery.NearbyStore
 import com.example.einkaufsliste.domain.recommendation.RecommendationIngredient
-import com.example.einkaufsliste.domain.recommendation.RecommendationSource
 import com.example.einkaufsliste.domain.recommendation.RecipeRecommendation
 import com.example.einkaufsliste.ui.viewmodel.TodayViewModel
 
@@ -144,27 +142,6 @@ fun TodayScreen(
             }
             items(uiState.highlightedStores, key = { it.id }) { store ->
                 StoreCard(store = store)
-            }
-            item {
-                SectionTitle(
-                    title = "Passt zu deinen Rezepten",
-                    subtitle = "Bestehende Rezepte plus neue Vorschlaege auf Basis der Angebote"
-                )
-            }
-            if (uiState.recommendations.isEmpty()) {
-                item {
-                    EmptyRecommendationsCard(onViewRecipes = onViewRecipes)
-                }
-            } else {
-                items(uiState.recommendations, key = { it.id }) { recommendation ->
-                    RecommendationCard(
-                        recommendation = recommendation,
-                        onAddMissingIngredients = {
-                            onAddMissingIngredients(recommendation.missingIngredients)
-                        },
-                        onOpenRecipe = onOpenRecipe
-                    )
-                }
             }
         }
     }
@@ -381,130 +358,6 @@ private fun StoreCard(store: NearbyStore) {
                         }
                     }
                 }
-            }
-        }
-    }
-}
-
-@Composable
-private fun RecommendationCard(
-    recommendation: RecipeRecommendation,
-    onAddMissingIngredients: () -> Unit,
-    onOpenRecipe: (String) -> Unit
-) {
-    Card(
-        colors = CardDefaults.cardColors(
-            containerColor = MaterialTheme.colorScheme.secondaryContainer
-        )
-    ) {
-        Column(
-            modifier = Modifier
-                .fillMaxWidth()
-                .padding(16.dp),
-            verticalArrangement = Arrangement.spacedBy(12.dp)
-        ) {
-            Row(
-                modifier = Modifier.fillMaxWidth(),
-                horizontalArrangement = Arrangement.SpaceBetween
-            ) {
-                Column(modifier = Modifier.weight(1f)) {
-                    Text(recommendation.name, style = MaterialTheme.typography.titleLarge)
-                    Text(
-                        text = recommendation.description,
-                        style = MaterialTheme.typography.bodyMedium
-                    )
-                }
-                Spacer(Modifier.width(12.dp))
-                Column(verticalArrangement = Arrangement.spacedBy(6.dp)) {
-                    AssistChip(
-                        onClick = {},
-                        label = {
-                            Text(
-                                when (recommendation.source) {
-                                    RecommendationSource.SAVED -> "Gespeichert"
-                                    RecommendationSource.AI -> "KI"
-                                }
-                            )
-                        }
-                    )
-                    AssistChip(
-                        onClick = {},
-                        label = { Text("${recommendation.score} Punkte") }
-                    )
-                }
-            }
-
-            Text(
-                text = recommendation.rationale,
-                style = MaterialTheme.typography.bodyMedium
-            )
-
-            Text("Treffer", style = MaterialTheme.typography.titleSmall)
-            LazyRow(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-                items(recommendation.offerMatches, key = { it.offerId + it.ingredientName }) { match ->
-                    AssistChip(
-                        onClick = {},
-                        label = { Text("${match.ingredientName}: ${match.priceLabel}") }
-                    )
-                }
-            }
-
-            if (recommendation.missingIngredients.isNotEmpty()) {
-                Column(verticalArrangement = Arrangement.spacedBy(6.dp)) {
-                    Text("Fehlt noch", style = MaterialTheme.typography.titleSmall)
-                    Text(
-                        text = recommendation.missingIngredients.joinToString(", ") { it.name },
-                        style = MaterialTheme.typography.bodyMedium,
-                        color = MaterialTheme.colorScheme.onSurfaceVariant
-                    )
-                }
-            }
-
-            Row(horizontalArrangement = Arrangement.spacedBy(10.dp)) {
-                Button(
-                    onClick = onAddMissingIngredients,
-                    enabled = recommendation.missingIngredients.isNotEmpty()
-                ) {
-                    Text("Fehlendes auf Liste")
-                }
-                OutlinedButton(
-                    onClick = {
-                        recommendation.recipeId?.let(onOpenRecipe)
-                    },
-                    enabled = recommendation.recipeId != null
-                ) {
-                    Text(
-                        when (recommendation.source) {
-                            RecommendationSource.SAVED -> "Rezept ansehen"
-                            RecommendationSource.AI -> "KI-Idee"
-                        }
-                    )
-                }
-            }
-        }
-    }
-}
-
-@Composable
-private fun EmptyRecommendationsCard(onViewRecipes: () -> Unit) {
-    Card(
-        colors = CardDefaults.cardColors(
-            containerColor = MaterialTheme.colorScheme.surfaceContainer
-        )
-    ) {
-        Column(
-            modifier = Modifier
-                .fillMaxWidth()
-                .padding(20.dp),
-            verticalArrangement = Arrangement.spacedBy(12.dp)
-        ) {
-            Text("Noch keine starken Treffer", style = MaterialTheme.typography.titleLarge)
-            Text(
-                text = "Sobald du mehr Rezepte gespeichert hast, werden Angebote automatisch dagegen gematcht.",
-                style = MaterialTheme.typography.bodyMedium
-            )
-            Button(onClick = onViewRecipes) {
-                Text("Zu den Rezepten")
             }
         }
     }
