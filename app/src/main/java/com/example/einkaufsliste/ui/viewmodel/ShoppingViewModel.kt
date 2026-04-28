@@ -12,6 +12,7 @@ import com.example.einkaufsliste.data.model.ShoppingListContribution
 import com.example.einkaufsliste.data.model.ShoppingListItem
 import com.example.einkaufsliste.data.repository.RecipeRepository
 import com.example.einkaufsliste.data.repository.normalizedKey
+import com.example.einkaufsliste.domain.recommendation.RecipeRecommendation
 import kotlinx.coroutines.flow.combine
 import kotlinx.coroutines.flow.SharingStarted
 import kotlinx.coroutines.flow.StateFlow
@@ -127,41 +128,29 @@ class ShoppingViewModel(
     }
 
     fun addRecipeToShoppingList(recipe: Recipe) {
-        val ingredients = recipe.ingredients.cleanIngredients()
-        if (ingredients.isEmpty()) {
-            addToShoppingList(recipe.name, "1", "x", "Rezepte", recipe.name)
-            return
-        }
-
-        ingredients.forEach { ingredient ->
-            if (ingredient.name.isBlank()) return@forEach
-
-            viewModelScope.launch {
-                repository.addToShoppingList(
-                    ShoppingListItem(
-                        ingredientName = ingredient.name.trim(),
-                        normalizedName = ingredient.name.normalizedKey(),
-                        amount = ingredient.amount.trim(),
-                        unit = ingredient.unit.trim(),
-                        category = ingredient.category.trim().ifBlank { "Sonstiges" },
-                        sourceRecipeName = recipe.name,
-                        contributions = listOf(
-                            ShoppingListContribution(
-                                key = recipe.id,
-                                label = recipe.name,
-                                amount = ingredient.amount.trim(),
-                                type = ShoppingListContribution.TYPE_RECIPE
-                            )
-                        )
-                    )
-                )
-            }
+        viewModelScope.launch {
+            addRecipeIngredientsToShoppingList(recipe)
         }
     }
 
     fun addSavedRecipeToShoppingList(recipeId: String) {
         val recipe = allRecipes.value.firstOrNull { it.id == recipeId } ?: return
         addRecipeToShoppingList(recipe)
+    }
+
+    fun addRecommendationToShoppingList(recommendation: RecipeRecommendation) {
+        viewModelScope.launch {
+            val savedRecipe = recommendation.recipeId
+                ?.let { recipeId -> allRecipes.value.firstOrNull { it.id == recipeId } }
+
+            val recipeToUse = savedRecipe ?: recommendation.toRecipe()
+            if (recipeToUse.ingredients.isEmpty()) return@launch
+
+            if (savedRecipe == null) {
+                repository.insertRecipe(recipeToUse)
+            }
+            addRecipeIngredientsToShoppingList(recipeToUse)
+        }
     }
 
     fun removeRecipeFromShoppingList(recipe: Recipe) {
@@ -226,6 +215,54 @@ class ShoppingViewModel(
         }
     }
 
+    private suspend fun addRecipeIngredientsToShoppingList(recipe: Recipe) {
+        val ingredients = recipe.ingredients.cleanIngredients()
+        if (ingredients.isEmpty()) {
+            repository.addToShoppingList(
+                ShoppingListItem(
+                    ingredientName = recipe.name,
+                    normalizedName = recipe.name.normalizedKey(),
+                    amount = "1",
+                    unit = "x",
+                    category = "Rezepte",
+                    sourceRecipeName = recipe.name,
+                    contributions = listOf(
+                        ShoppingListContribution(
+                            key = recipe.id,
+                            label = recipe.name,
+                            amount = "1",
+                            type = ShoppingListContribution.TYPE_RECIPE
+                        )
+                    )
+                )
+            )
+            return
+        }
+
+        ingredients.forEach { ingredient ->
+            if (ingredient.name.isBlank()) return@forEach
+
+            repository.addToShoppingList(
+                ShoppingListItem(
+                    ingredientName = ingredient.name.trim(),
+                    normalizedName = ingredient.name.normalizedKey(),
+                    amount = ingredient.amount.trim(),
+                    unit = ingredient.unit.trim(),
+                    category = ingredient.category.trim().ifBlank { "Sonstiges" },
+                    sourceRecipeName = recipe.name,
+                    contributions = listOf(
+                        ShoppingListContribution(
+                            key = recipe.id,
+                            label = recipe.name,
+                            amount = ingredient.amount.trim(),
+                            type = ShoppingListContribution.TYPE_RECIPE
+                        )
+                    )
+                )
+            )
+        }
+    }
+
     private fun List<IngredientItem>.cleanIngredients(): List<IngredientItem> =
         mapNotNull { ingredient ->
             val name = ingredient.name.trim()
@@ -259,5 +296,44 @@ class ShoppingViewModel(
             .filter { it.name.isNotBlank() }
             .distinctBy { it.name.normalizedKey() }
             .sortedBy { it.name.lowercase() }
+    }
+
+    private fun RecipeRecommendation.toRecipe(): Recipe {
+        val recipeId = recipeId?.takeIf { it.isNotBlank() } ?: UUID.randomUUID().toString()
+        val ingredientsByName = linkedMapOf<String, IngredientItem>()
+
+        matchedIngredients.forEach { ingredientName ->
+            val normalizedName = ingredientName.normalizedKey()
+            if (normalizedName.isBlank() || ingredientsByName.containsKey(normalizedName)) return@forEach
+            ingredientsByName[normalizedName] = IngredientItem(
+                name = ingredientName,
+                amount = "",
+                unit = "",
+                category = "Sonstiges"
+            )
+        }
+
+        missingIngredients.forEach { ingredient ->
+            val normalizedName = ingredient.name.normalizedKey()
+            if (normalizedName.isBlank()) return@forEach
+            ingredientsByName[normalizedName] = IngredientItem(
+                name = ingredient.name,
+                amount = ingredient.amount,
+                unit = ingredient.unit,
+                category = ingredient.category.ifBlank { "Sonstiges" }
+            )
+        }
+
+        return Recipe(
+            id = recipeId,
+            name = name,
+            description = listOf(description.trim(), rationale.trim())
+                .filter { it.isNotBlank() }
+                .distinct()
+                .joinToString("\n\n"),
+            imageUrl = imageUrl,
+            servings = 2,
+            ingredients = ingredientsByName.values.toList()
+        )
     }
 }

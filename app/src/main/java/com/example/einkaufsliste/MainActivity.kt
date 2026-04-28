@@ -86,6 +86,10 @@ fun MainApp() {
                 onAddRecipeToShoppingList = { recipeId ->
                     shoppingViewModel.addSavedRecipeToShoppingList(recipeId)
                     navController.navigate("shopping_list")
+                },
+                onAddAiRecommendationToShoppingList = { recommendation ->
+                    shoppingViewModel.addRecommendationToShoppingList(recommendation)
+                    navController.navigate("shopping_list")
                 }
             )
         }

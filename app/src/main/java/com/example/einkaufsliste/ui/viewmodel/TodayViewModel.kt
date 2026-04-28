@@ -8,6 +8,7 @@ import com.example.einkaufsliste.data.discovery.OfferDiscoveryFeed
 import com.example.einkaufsliste.data.remote.AiRecipeSuggestionService
 import com.example.einkaufsliste.data.repository.RecipeRepository
 import com.example.einkaufsliste.domain.recommendation.RecipeRecommendation
+import com.example.einkaufsliste.domain.recommendation.RecommendationSource
 import com.example.einkaufsliste.domain.recommendation.RecipeRecommendationEngine
 import kotlinx.coroutines.flow.SharingStarted
 import kotlinx.coroutines.flow.StateFlow
@@ -21,7 +22,9 @@ data class TodayUiState(
     val recommendations: List<RecipeRecommendation> = emptyList(),
     val dailyTip: RecipeRecommendation? = null,
     val dailyTipRecipeId: String? = null,
-    val dailyTipImageUrl: String? = null
+    val dailyTipImageUrl: String? = null,
+    val aiTip: RecipeRecommendation? = null,
+    val aiTipImageUrl: String? = null
 )
 
 @OptIn(kotlinx.coroutines.ExperimentalCoroutinesApi::class)
@@ -43,13 +46,17 @@ class TodayViewModel(
             ?: fallbackRecommendations
         val dailyTip = recommendations.firstOrNull { it.recipeId != null } ?: recommendations.firstOrNull()
         val dailyTipRecipe = recipes.firstOrNull { it.id == dailyTip?.recipeId }
+        val aiTip = recommendations.firstOrNull { it.source == RecommendationSource.AI && it.id != dailyTip?.id }
+        val aiTipRecipe = recipes.firstOrNull { it.id == aiTip?.recipeId }
         TodayUiState(
             feed = feed,
             highlightedStores = feed.stores.sortedBy { it.distanceKm },
             recommendations = recommendations,
             dailyTip = dailyTip,
             dailyTipRecipeId = dailyTipRecipe?.id,
-            dailyTipImageUrl = dailyTip?.imageUrl ?: dailyTipRecipe?.imageUrl
+            dailyTipImageUrl = dailyTip?.imageUrl ?: dailyTipRecipe?.imageUrl,
+            aiTip = aiTip,
+            aiTipImageUrl = aiTip?.imageUrl ?: aiTipRecipe?.imageUrl
         )
     }.stateIn(
         viewModelScope,

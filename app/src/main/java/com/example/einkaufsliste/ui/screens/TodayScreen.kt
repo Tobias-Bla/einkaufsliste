@@ -44,6 +44,7 @@ import coil.compose.AsyncImage
 import com.example.einkaufsliste.data.discovery.MarketOffer
 import com.example.einkaufsliste.data.discovery.NearbyStore
 import com.example.einkaufsliste.domain.recommendation.RecipeRecommendation
+import com.example.einkaufsliste.domain.recommendation.RecommendationSource
 import com.example.einkaufsliste.ui.viewmodel.TodayViewModel
 
 @OptIn(ExperimentalMaterial3Api::class)
@@ -53,7 +54,8 @@ fun TodayScreen(
     onViewRecipes: () -> Unit,
     onViewShoppingList: () -> Unit,
     onOpenHousehold: () -> Unit,
-    onAddRecipeToShoppingList: (String) -> Unit
+    onAddRecipeToShoppingList: (String) -> Unit,
+    onAddAiRecommendationToShoppingList: (RecipeRecommendation) -> Unit
 ) {
     val uiState by viewModel.uiState.collectAsState()
     val feed = uiState.feed
@@ -118,6 +120,17 @@ fun TodayScreen(
                     onViewRecipes = onViewRecipes,
                     onAddRecipeToShoppingList = onAddRecipeToShoppingList
                 )
+            }
+            uiState.aiTip?.let { aiTip ->
+                item {
+                    AiTipCard(
+                        recommendation = aiTip,
+                        imageUrl = uiState.aiTipImageUrl,
+                        onAddToShoppingList = {
+                            onAddAiRecommendationToShoppingList(aiTip)
+                        }
+                    )
+                }
             }
             item {
                 if (featuredOffers.isNotEmpty()) {
@@ -211,6 +224,80 @@ private fun DailyTipCard(
                 ) {
                     Text("Rezept hinzufuegen")
                 }
+            }
+        }
+    }
+}
+
+@Composable
+private fun AiTipCard(
+    recommendation: RecipeRecommendation,
+    imageUrl: String?,
+    onAddToShoppingList: () -> Unit
+) {
+    Card(
+        colors = CardDefaults.cardColors(
+            containerColor = MaterialTheme.colorScheme.secondaryContainer
+        )
+    ) {
+        Column(
+            modifier = Modifier
+                .fillMaxWidth()
+                .padding(18.dp),
+            verticalArrangement = Arrangement.spacedBy(10.dp)
+        ) {
+            Row(
+                modifier = Modifier.fillMaxWidth(),
+                horizontalArrangement = Arrangement.SpaceBetween
+            ) {
+                Text("KI-Tipp des Tages", style = MaterialTheme.typography.titleLarge)
+                AssistChip(
+                    onClick = {},
+                    label = { Text("${recommendation.score} Punkte") }
+                )
+            }
+            imageUrl?.takeIf { it.isNotBlank() }?.let { recipeImage ->
+                AsyncImage(
+                    model = recipeImage,
+                    contentDescription = recommendation.name,
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .height(190.dp),
+                    contentScale = ContentScale.Crop
+                )
+            }
+            Text(
+                text = recommendation.name,
+                style = MaterialTheme.typography.headlineSmall,
+                fontWeight = FontWeight.SemiBold
+            )
+            Text(
+                text = recommendation.description.ifBlank { recommendation.rationale },
+                style = MaterialTheme.typography.bodyMedium
+            )
+            Text(
+                text = recommendation.rationale,
+                style = MaterialTheme.typography.bodySmall,
+                color = MaterialTheme.colorScheme.onSurfaceVariant
+            )
+            if (recommendation.offerMatches.isNotEmpty()) {
+                Text(
+                    text = "Angebots-Treffer: ${recommendation.offerMatches.joinToString(", ") { it.ingredientName }}",
+                    style = MaterialTheme.typography.bodySmall,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant
+                )
+            }
+            Button(
+                onClick = onAddToShoppingList,
+                modifier = Modifier.fillMaxWidth()
+            ) {
+                Text(
+                    if (recommendation.recipeId.isNullOrBlank()) {
+                        "Zur Liste und als Rezept speichern"
+                    } else {
+                        "Zur Liste"
+                    }
+                )
             }
         }
     }
