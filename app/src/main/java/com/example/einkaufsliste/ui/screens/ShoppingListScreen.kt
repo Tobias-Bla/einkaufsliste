@@ -29,7 +29,6 @@ import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
-import androidx.compose.material3.OutlinedTextField
 import androidx.compose.material3.Scaffold
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
@@ -39,7 +38,6 @@ import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
-import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
@@ -78,9 +76,6 @@ fun ShoppingListScreen(
         .filter { it.isChecked }
         .sortedWith(compareByDescending<ShoppingListItem> { it.checkedAt ?: 0L }.thenBy { it.ingredientName.lowercase() })
     val groupedPending = pendingItems.groupBy { it.category.ifBlank { "Sonstiges" } }
-    val completedCount = checkedItems.size
-    val totalCount = shoppingList.size
-    val remainingCount = totalCount - completedCount
 
     Scaffold(
         topBar = {
@@ -145,27 +140,6 @@ fun ShoppingListScreen(
             contentPadding = PaddingValues(16.dp)
         ) {
             item {
-                ShoppingProgressCard(
-                    remainingCount = remainingCount,
-                    completedCount = completedCount,
-                    totalCount = totalCount,
-                    recipeCount = recipesOnList.size
-                )
-            }
-            item {
-                QuickAddCard(
-                    ingredientCatalog = ingredientCatalog,
-                    onAddItem = { name, amount, unit, category ->
-                        viewModel.addToShoppingList(
-                            name = name,
-                            amount = amount,
-                            unit = unit,
-                            category = category
-                        )
-                    }
-                )
-            }
-            item {
                 Row(
                     modifier = Modifier.fillMaxWidth(),
                     horizontalArrangement = Arrangement.spacedBy(10.dp)
@@ -203,163 +177,6 @@ fun ShoppingListScreen(
                 onCheckedChange = viewModel::toggleShoppingItem,
                 onDelete = viewModel::deleteShoppingItem
             )
-        }
-    }
-}
-
-@Composable
-private fun ShoppingProgressCard(
-    remainingCount: Int,
-    completedCount: Int,
-    totalCount: Int,
-    recipeCount: Int
-) {
-    Card(
-        colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.primaryContainer)
-    ) {
-        Column(
-            modifier = Modifier
-                .fillMaxWidth()
-                .padding(16.dp),
-            verticalArrangement = Arrangement.spacedBy(12.dp)
-        ) {
-            Text("Einkauf heute", style = MaterialTheme.typography.titleLarge)
-            Row(
-                modifier = Modifier.fillMaxWidth(),
-                horizontalArrangement = Arrangement.spacedBy(10.dp)
-            ) {
-                ShoppingMetric(
-                    modifier = Modifier.weight(1f),
-                    label = "Offen",
-                    value = remainingCount.toString()
-                )
-                ShoppingMetric(
-                    modifier = Modifier.weight(1f),
-                    label = "Erledigt",
-                    value = completedCount.toString()
-                )
-                ShoppingMetric(
-                    modifier = Modifier.weight(1f),
-                    label = "Rezepte",
-                    value = recipeCount.toString()
-                )
-            }
-            Text(
-                text = if (totalCount == 0) {
-                    "Die Liste ist leer."
-                } else {
-                    "$completedCount von $totalCount Artikeln sind bereits abgehakt."
-                },
-                style = MaterialTheme.typography.bodyMedium,
-                color = MaterialTheme.colorScheme.onSurfaceVariant
-            )
-        }
-    }
-}
-
-@Composable
-private fun ShoppingMetric(
-    modifier: Modifier = Modifier,
-    label: String,
-    value: String
-) {
-    Card(
-        modifier = modifier,
-        colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surface.copy(alpha = 0.55f))
-    ) {
-        Column(
-            modifier = Modifier
-                .fillMaxWidth()
-                .padding(horizontal = 14.dp, vertical = 12.dp),
-            verticalArrangement = Arrangement.spacedBy(2.dp)
-        ) {
-            Text(value, style = MaterialTheme.typography.headlineSmall)
-            Text(
-                text = label,
-                style = MaterialTheme.typography.labelMedium,
-                color = MaterialTheme.colorScheme.onSurfaceVariant
-            )
-        }
-    }
-}
-
-@Composable
-private fun QuickAddCard(
-    ingredientCatalog: List<IngredientCatalogEntry>,
-    onAddItem: (name: String, amount: String, unit: String, category: String) -> Unit
-) {
-    var name by remember { mutableStateOf("") }
-    var amount by remember { mutableStateOf("") }
-    var unit by remember { mutableStateOf("") }
-    var category by remember { mutableStateOf("Sonstiges") }
-
-    fun applyCatalogDefaults(productName: String) {
-        val entry = ingredientCatalog.firstOrNull { it.name.equals(productName, ignoreCase = true) } ?: return
-        if (amount.isBlank()) amount = entry.defaultAmount
-        if (unit.isBlank()) unit = entry.defaultUnit
-        if (category.isBlank() || category == "Sonstiges") category = entry.category
-    }
-
-    Card(
-        colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surfaceContainer)
-    ) {
-        Column(
-            modifier = Modifier
-                .fillMaxWidth()
-                .padding(16.dp),
-            verticalArrangement = Arrangement.spacedBy(12.dp)
-        ) {
-            Text("Schnell hinzufuegen", style = MaterialTheme.typography.titleMedium)
-            OutlinedTextField(
-                value = name,
-                onValueChange = {
-                    name = it
-                    applyCatalogDefaults(it)
-                },
-                label = { Text("Artikel") },
-                singleLine = true,
-                modifier = Modifier.fillMaxWidth()
-            )
-            Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-                OutlinedTextField(
-                    value = amount,
-                    onValueChange = { amount = it },
-                    label = { Text("Menge") },
-                    singleLine = true,
-                    modifier = Modifier.weight(1f)
-                )
-                OutlinedTextField(
-                    value = unit,
-                    onValueChange = { unit = it },
-                    label = { Text("Einheit") },
-                    singleLine = true,
-                    modifier = Modifier.weight(1f)
-                )
-            }
-            OutlinedTextField(
-                value = category,
-                onValueChange = { category = it },
-                label = { Text("Kategorie") },
-                singleLine = true,
-                modifier = Modifier.fillMaxWidth()
-            )
-            Row(
-                modifier = Modifier.fillMaxWidth(),
-                horizontalArrangement = Arrangement.End
-            ) {
-                Button(
-                    onClick = {
-                        onAddItem(name.trim(), amount.trim(), unit.trim(), category.trim().ifBlank { "Sonstiges" })
-                        name = ""
-                        amount = ""
-                        unit = ""
-                        category = "Sonstiges"
-                    },
-                    enabled = name.isNotBlank()
-                ) {
-                    Text("Zur Liste")
-                }
-            }
         }
     }
 }
